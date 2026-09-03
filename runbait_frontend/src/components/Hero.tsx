@@ -67,10 +67,10 @@ export default function Hero() {
                 <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">Completed</span>
               </div>
               <div className="text-zinc-500 text-sm flex items-center gap-2 mt-1">
-                <GithubIcon className="w-3.5 h-3.5" /> acme-corp / acme-web
+                <GithubIcon className="w-3.5 h-3.5" /> maitry4/opensource.razorpay.com
               </div>
               <div className="text-zinc-400 text-sm mt-2 font-mono bg-white/5 px-2 py-1 rounded inline-block">
-                #142 Fix checkout loading state
+                #142 Refactor search filters
               </div>
             </div>
             <button className="flex items-center gap-2 text-xs border border-white/10 rounded px-3 py-1.5 text-zinc-300 hover:bg-white/5 transition-colors">
@@ -92,8 +92,8 @@ export default function Hero() {
             <div className="border border-white/10 rounded-lg p-4 bg-white/5 flex gap-4">
               <div className="flex-1">
                 <div className="bg-red-500/20 text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded inline-block mb-2 uppercase tracking-wider">High</div>
-                <h5 className="text-white font-medium mb-2">Checkout broken</h5>
-                <p className="text-zinc-400 text-xs leading-relaxed mb-4">Payment button remains disabled after payment information is entered. Users are unable to complete the order.</p>
+                <h5 className="text-white font-medium mb-2">Search broken</h5>
+                <p className="text-zinc-400 text-xs leading-relaxed mb-4">When search box used the filter tags don't work. Users are unable to filter results.</p>
                 <div className="text-zinc-500 text-xs">Confidence: 94%</div>
                 <div className="text-zinc-500 text-xs mt-1">Step 7 / 9</div>
               </div>
@@ -118,8 +118,8 @@ export default function Hero() {
           <div className="mt-2">
             <h4 className="text-zinc-400 text-xs mb-2">Flows tested</h4>
             <div className="flex gap-2">
-              <span className="text-xs border border-white/10 px-2 py-1 rounded bg-white/5 text-zinc-300">Checkout</span>
-              <span className="text-xs border border-white/10 px-2 py-1 rounded bg-white/5 text-zinc-300">Cart</span>
+              <span className="text-xs border border-white/10 px-2 py-1 rounded bg-white/5 text-zinc-300">Search</span>
+              <span className="text-xs border border-white/10 px-2 py-1 rounded bg-white/5 text-zinc-300">Filters</span>
             </div>
           </div>
 

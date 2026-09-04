@@ -1,0 +1,5 @@
+.env
+venv/
+error_logs.txt
+output/
+__pycache__/

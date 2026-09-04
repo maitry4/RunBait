@@ -1,5 +1,5 @@
 .env
 venv/
-error_logs.txt
+error_logs_for_future_reference.txt
 output/
 __pycache__/

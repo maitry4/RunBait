@@ -103,13 +103,17 @@ No dashboard required. The result appears where developers already work: **GitHu
 
 ---
 
-## AI pipeline
+## The Backend Pipeline
 
-RunBait uses three constrained AI steps, each with structured JSON output:
+RunBait operates in a self-contained 5-phase pipeline. All AI steps use **structured JSON outputs** to ensure deterministic parsing and reliability. The pipeline is designed to run completely headlessly in **GitHub Actions**.
 
-### 1. Repository analyzer
+### Phase 1: Repo Context Extraction (Deterministic)
 
-Extracts structured context from the repo (routes, pages, components, tests, API endpoints) and asks Gemini to discover testable user journeys:
+Uses the GitHub REST API to extract a lean, structural summary of the repository without cloning it. It infers the framework, routes, and pulls snippets of key config files. This distilled context is much cheaper and more effective for the AI than a raw file dump.
+
+### Phase 2: Flow Discovery (AI: Gemini 2.5 Flash)
+
+Reads the distilled repo context and generates a `FlowFile` — a structured list of testable, realistic user journeys.
 
 ```json
 {
@@ -123,33 +127,39 @@ Extracts structured context from the repo (routes, pages, components, tests, API
 }
 ```
 
-### 2. PR impact analyzer
+### Phase 3: PR Impact Analysis (AI: Gemini 2.5 Flash)
 
-Combines repository workflows with the PR diff. Deterministic signals (changed files → component mapping → candidate flows) are ranked by Gemini:
+Deterministically maps the PR diff's changed files to candidate flows, then asks Gemini to select and prioritize which flows are actually affected by the PR.
 
 ```json
 {
   "selected_flows": [
     {
       "flow": "checkout",
-      "reason": "PaymentButton and checkout state management changed."
+      "reason": "PaymentButton and checkout state management changed.",
+      "priority": "high"
     }
   ]
 }
 ```
 
-### 3. Regression judge
+### Phase 4: Playwright Runner (Deterministic)
 
-Given the PR diff, affected flow, step sequence, and screenshots, Gemini decides whether a regression occurred:
+Executes the selected workflows headlessly against the running application. It uses smart locator strategies and automatically captures screenshots at every state-changing step and on any failure. Execution logs and screenshots are saved as artifacts.
+
+### Phase 5: Regression Judge (AI: Gemini 3.1 Flash-Lite)
+
+Given the expected flow, the execution log, the PR diff context, and all captured screenshots (sent as multimodal images), Gemini judges whether a regression occurred.
 
 ```json
 {
   "bug_found": true,
   "severity": "high",
-  "type": "behavioral",
+  "bug_type": "behavioral",
   "description": "Checkout payment button remains disabled after payment info is entered.",
   "evidence_step": 6,
-  "confidence": 0.94
+  "confidence": 0.94,
+  "details": "In step 6, the screenshot shows all required fields are filled, but the 'Pay' button is still greyed out and has the 'disabled' attribute."
 }
 ```
 
@@ -242,7 +252,23 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Backend
 
-Coming soon. The FastAPI orchestrator will live in a separate service directory.
+To run the standalone AI pipeline locally:
+
+```bash
+cd runbait_backend
+pip install -r requirements.txt
+playwright install chromium
+```
+
+Copy `.env.example` to `.env` and add your `GEMINI_API_KEY` and `GITHUB_TOKEN`.
+
+```bash
+# Run interactively (Phases 1-3 only)
+python runbait_agent.py
+
+# Run full pipeline with Playwright (requires app running locally at the port)
+python runbait_agent.py --app-url http://localhost:3000
+```
 
 ---
 

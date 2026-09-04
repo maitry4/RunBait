@@ -5,6 +5,7 @@ Takes the structured RepoContext from Phase 1 and asks Gemini to generate
 a FlowFile: a list of testable user journeys for the application.
 
 Uses the new google-genai SDK with native Pydantic structured output.
+AFC (automatic function calling) is explicitly disabled — we don't use tools.
 """
 
 import json
@@ -84,6 +85,7 @@ def discover_flows(ctx: RepoContext, client: genai.Client, model_name: str = "ge
             system_instruction=SYSTEM_PROMPT,
             response_mime_type="application/json",
             response_schema=FlowFile,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         ),
     )
 

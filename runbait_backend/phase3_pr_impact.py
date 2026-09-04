@@ -146,6 +146,7 @@ def analyze_pr_impact(
             system_instruction=SYSTEM_PROMPT,
             response_mime_type="application/json",
             response_schema=PRImpactResult,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         ),
     )
 

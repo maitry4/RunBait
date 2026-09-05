@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getSession, logout } from "@/lib/auth";
 import { Activity, Database, LayoutDashboard, Settings, LogOut, GitPullRequest, Zap } from "lucide-react";
+import DashboardClient from "@/components/DashboardClient";
 
 export const metadata = {
   title: "Dashboard — RunBait",
@@ -21,7 +22,6 @@ export default async function DashboardPage() {
           <Link href="/" className="flex items-center gap-2">
             <Image src="/logo.png" alt="Runbait logo" width={160} height={44} className="h-11 w-auto object-contain" />
           </Link>
-          {/* <span className="font-semibold tracking-tight text-sm">Runbait</span> */}
         </div>
 
         <nav className="flex flex-col gap-1 text-sm text-zinc-400">
@@ -64,40 +64,7 @@ export default async function DashboardPage() {
 
       {/* Main */}
       <main className="flex-1 p-8 overflow-auto">
-        <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-white">Overview</h1>
-            <p className="text-sm text-zinc-500 mt-1">
-              Welcome back, {user.name}
-            </p>
-          </div>
-
-          {/* Stats row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <StatCard label="Analyses run" value="0" icon={<Activity className="w-4 h-4 text-zinc-500" />} />
-            <StatCard label="Repositories" value="0" icon={<Database className="w-4 h-4 text-zinc-500" />} />
-            <StatCard label="Issues found" value="0" icon={<Zap className="w-4 h-4 text-zinc-500" />} />
-          </div>
-
-          {/* Empty state */}
-          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-12 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 border border-white/10 mb-4">
-              <GitPullRequest className="w-5 h-5 text-zinc-400" />
-            </div>
-            <h2 className="text-lg font-semibold text-white mb-2">No analyses yet</h2>
-            <p className="text-sm text-zinc-500 max-w-sm mx-auto mb-6">
-              Connect a repository and open a pull request to trigger your first AI QA analysis.
-            </p>
-            <button
-              id="connect-repo-btn"
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-zinc-100 transition-colors"
-            >
-              <Database className="w-4 h-4" />
-              Connect a repository
-            </button>
-          </div>
-        </div>
+        <DashboardClient user={user} />
       </main>
     </div>
   );

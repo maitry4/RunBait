@@ -1,0 +1,93 @@
+name: RunBait Playwright Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: 'The target repository to test (e.g., owner/repo)'
+        required: true
+        type: string
+      pr_number:
+        description: 'The PR number to test'
+        required: true
+        type: string
+      run_id:
+        description: 'The Run ID in RunBait backend'
+        required: true
+        type: string
+      callback_url:
+        description: 'The webhook URL to send results back to'
+        required: true
+        type: string
+      install_command:
+        description: 'Command to install dependencies'
+        required: false
+        type: string
+        default: 'npm install'
+      start_command:
+        description: 'Command to start the application'
+        required: false
+        type: string
+        default: 'npm run dev'
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      # We need to checkout the agent code first to a specific directory so we can run Phase 4
+      - name: Checkout RunBait Agent
+        uses: actions/checkout@v4
+        with:
+          path: runbait-agent
+
+      - name: Install Agent Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r runbait-agent/runbait_backend/requirements.txt
+          playwright install --with-deps chromium
+
+      # Now checkout the target repository
+      - name: Checkout Target PR
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.target_repo }}
+          ref: refs/pull/${{ inputs.pr_number }}/head
+          path: target-app
+
+      - name: Install Target App Dependencies
+        working-directory: ./target-app
+        run: ${{ inputs.install_command }}
+
+      - name: Start Target App
+        working-directory: ./target-app
+        run: |
+          ${{ inputs.start_command }} &
+          echo "Waiting for app to start..."
+          # A simple wait for the port to be active
+          npx wait-on http://localhost:3000 || sleep 15
+
+      - name: Run Playwright Tests
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          CALLBACK_URL: ${{ inputs.callback_url }}
+        run: |
+          cd runbait-agent/runbait_backend
+          python github_actions_runner.py
+
+      - name: Upload Screenshots Artifact
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: runbait-output-${{ inputs.run_id }}
+          path: runbait-agent/runbait_backend/output/
+          retention-days: 7

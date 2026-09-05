@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from core.config import get_settings
-from routers import auth, users
+from routers import auth, users, runs
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,6 +59,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(runs.router)
 
 
 # ------------------------------------------------------------------

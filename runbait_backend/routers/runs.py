@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 
 from core.security import get_current_user
-from services.run_service import create_run, get_run
+from services.run_service import create_run, get_run, get_all_runs_for_user
 from services.orchestrator import run_phases_1_to_3, run_phase_6
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
@@ -44,6 +44,11 @@ async def get_run_status(run_id: str, user: dict = Depends(get_current_user)):
     if run["user_id"] != user["sub"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     return run
+
+@router.get("")
+async def get_all_runs(user: dict = Depends(get_current_user)):
+    runs = get_all_runs_for_user(user["sub"])
+    return runs
 
 @router.get("/{run_id}/runner-data")
 async def get_runner_data(run_id: str):

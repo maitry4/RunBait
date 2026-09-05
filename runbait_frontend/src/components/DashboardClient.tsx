@@ -15,15 +15,36 @@ interface RunData {
   error?: string;
 }
 
-export default function DashboardClient({ user }: { user: any }) {
+export default function DashboardClient({ user, currentTab = "overview" }: { user: any; currentTab?: string }) {
   const [activeTab, setActiveTab] = useState<"demo" | "beta">("demo");
-  const [demoPR, setDemoPR] = useState("1"); // default dummy PR
+  const [demoPR, setDemoPR] = useState("1");
   const [betaRepo, setBetaRepo] = useState("");
   const [betaPR, setBetaPR] = useState("");
   const [startCmd, setStartCmd] = useState("npm run dev");
   const [installCmd, setInstallCmd] = useState("npm install");
   const [isLoading, setIsLoading] = useState(false);
   const [currentRun, setCurrentRun] = useState<RunData | null>(null);
+  const [allRuns, setAllRuns] = useState<any[]>([]);
+
+  const fetchAllRuns = async () => {
+    try {
+      const res = await api.get("/api/runs");
+      setAllRuns(res.data);
+      // If no currentRun is set, maybe set the most recent one as currentRun to show something?
+      if (!currentRun && res.data.length > 0) {
+        const latestRun = res.data[0];
+        if (["pending", "phase1-3", "github-actions", "phase6"].includes(latestRun.status)) {
+          setCurrentRun(latestRun);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch runs", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllRuns();
+  }, [currentTab]); // re-fetch when tab changes
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -32,6 +53,7 @@ export default function DashboardClient({ user }: { user: any }) {
         try {
           const res = await api.get(`/api/runs/${currentRun.id}`);
           setCurrentRun(res.data);
+          fetchAllRuns(); // keep list updated
         } catch (e) {
           console.error("Failed to poll status", e);
         }
@@ -59,6 +81,7 @@ export default function DashboardClient({ user }: { user: any }) {
 
       const res = await api.post("/api/runs", payload);
       setCurrentRun({ id: res.data.run_id, status: "pending", ...payload });
+      fetchAllRuns();
     } catch (e) {
       console.error(e);
       alert("Failed to start run.");
@@ -66,6 +89,75 @@ export default function DashboardClient({ user }: { user: any }) {
       setIsLoading(false);
     }
   };
+
+  const uniqueRepos = Array.from(new Set(allRuns.map(r => r.repo)));
+
+  if (currentTab === "repositories") {
+    return (
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Repositories</h1>
+          <p className="text-sm text-zinc-500 mt-1">Repositories you have analyzed.</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {uniqueRepos.length === 0 ? (
+            <p className="text-zinc-500 text-sm">No repositories analyzed yet.</p>
+          ) : (
+            uniqueRepos.map(repo => (
+              <div key={repo} className="rounded-xl border border-white/5 bg-white/[0.02] p-5 flex items-center gap-3">
+                <Database className="w-6 h-6 text-cyan-400" />
+                <span className="font-medium text-white truncate">{repo}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (currentTab === "analyses") {
+    return (
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Analyses</h1>
+          <p className="text-sm text-zinc-500 mt-1">History of all PR analyses.</p>
+        </div>
+        <div className="space-y-4">
+          {allRuns.length === 0 ? (
+            <p className="text-zinc-500 text-sm">No analyses found.</p>
+          ) : (
+            allRuns.map(run => (
+              <div key={run.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-6 flex flex-col gap-4">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-cyan-400" />
+                    <span className="font-medium text-white">{run.repo} (PR #{run.pr_number})</span>
+                  </div>
+                  {run.status === "completed" && <span className="px-2 py-1 text-xs rounded bg-green-500/10 text-green-400 border border-green-500/20">Success</span>}
+                  {run.status === "failed" && <span className="px-2 py-1 text-xs rounded bg-red-500/10 text-red-400 border border-red-500/20">Failed</span>}
+                  {["pending", "phase1-3", "github-actions", "phase6"].includes(run.status) && <span className="px-2 py-1 text-xs rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">In Progress ({run.status})</span>}
+                </div>
+                {run.status === "failed" && (
+                  <div className="text-sm text-red-400 bg-red-500/5 p-3 rounded border border-red-500/10">
+                    {run.error || "Unknown error"}
+                  </div>
+                )}
+                {run.status === "completed" && run.results?.report && (
+                  <div className="text-sm text-zinc-300 bg-black/30 p-4 rounded border border-white/5">
+                    <div className="font-semibold text-white mb-2 flex items-center gap-2">
+                      {run.results.report.overall_status === "PASS" ? <CheckCircle className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-500" />}
+                      Overall Status: {run.results.report.overall_status}
+                    </div>
+                    <p className="mb-4 whitespace-pre-wrap">{run.results.report.summary}</p>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -77,9 +169,9 @@ export default function DashboardClient({ user }: { user: any }) {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Analyses run" value={currentRun ? "1" : "0"} icon={<Activity className="w-4 h-4 text-zinc-500" />} />
-        <StatCard label="Repositories" value="1" icon={<Database className="w-4 h-4 text-zinc-500" />} />
-        <StatCard label="Issues found" value="0" icon={<Zap className="w-4 h-4 text-zinc-500" />} />
+        <StatCard label="Analyses run" value={allRuns.length.toString()} icon={<Activity className="w-4 h-4 text-zinc-500" />} />
+        <StatCard label="Repositories" value={uniqueRepos.length.toString()} icon={<Database className="w-4 h-4 text-zinc-500" />} />
+        <StatCard label="Issues found" value={allRuns.filter(r => r.status === 'failed' || (r.results?.report?.overall_status && r.results.report.overall_status !== 'PASS')).length.toString()} icon={<Zap className="w-4 h-4 text-zinc-500" />} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -173,8 +265,19 @@ export default function DashboardClient({ user }: { user: any }) {
               <StatusStep label="AI Regression Analysis" active={currentRun.status === "phase6"} done={["completed"].includes(currentRun.status)} />
 
               {currentRun.status === "completed" && (
-                <div className="mt-6 p-4 rounded bg-green-500/10 border border-green-500/20 text-green-400 text-sm flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" /> Analysis Completed Successfully!
+                <div className="mt-6 p-4 rounded bg-green-500/10 border border-green-500/20 text-green-400 text-sm flex flex-col gap-2">
+                  <div className="flex items-center gap-2 font-medium">
+                    <CheckCircle className="w-4 h-4" /> Analysis Completed Successfully!
+                  </div>
+                  {/* @ts-ignore */}
+                  {currentRun.results?.report?.summary && (
+                    <div className="mt-2 text-zinc-300 text-xs whitespace-pre-wrap">
+                      {/* @ts-ignore */}
+                      {currentRun.results.report.summary.substring(0, 200)}...
+                      <br/>
+                      <a href="/dashboard?tab=analyses" className="text-cyan-400 underline mt-2 block">View full report in Analyses tab</a>
+                    </div>
+                  )}
                 </div>
               )}
               {currentRun.status === "failed" && (

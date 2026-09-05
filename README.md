@@ -198,38 +198,19 @@ Screenshot capture is decided by the workflow generator at each checkpoint. No m
 
 ---
 
-<!-- ## Project structure
+## Project structure
 
 ```
 RunBait/
-├── runbait_frontend/     # Next.js dashboard & landing page
-│   └── src/app/
-└── README.md
+├── runbait_frontend/     # Next.js dashboard (Overview, Repositories, Analyses)
+├── runbait_backend/      # FastAPI orchestrator & pipeline
+└── .github/workflows/    # GitHub Actions for Playwright runner
 ```
 
-Backend (`FastAPI`), GitHub Action runner, and Playwright executor are planned — see roadmap below.
-
----
-
-## Roadmap
-
-| Step | Component | Status |
-| --- | --- | --- |
-| 1 | Landing page (hero, flow diagram, sample report) | 🚧 In progress |
-| 2 | GitHub OAuth (`/login`) | Planned |
-| 3 | Repository selection dashboard | Planned |
-| 4 | PR selection & "Run Analysis" | Planned |
-| 5 | FastAPI orchestrator (`POST /analysis`) | Planned |
-| 6 | GitHub API integration (PR diff, metadata) | Planned |
-| 7 | AI repository analyzer (journey discovery) | Planned |
-| 8 | Workflow generation (JSON → Playwright) | Planned |
-| 9 | PR impact analysis (affected flows) | Planned |
-| 10 | GitHub Actions dispatch | Planned |
-| 11 | Playwright runner execution | Planned |
-| 12 | Artifact upload (screenshots, traces) | Planned |
-| 13 | Gemini regression judge | Planned |
-| 14 | Dashboard analysis report | Planned |
-| 15 | GitHub PR comment | Planned | -->
+The frontend includes a unified dashboard to launch analyses (Demo or Custom Repo) and view historical data:
+- **Overview**: Launch new analyses and monitor the active run's progress.
+- **Repositories**: Track all repositories previously analyzed.
+- **Analyses**: View the history of all PR analyses, including success/failure states and detailed regression reports.
 
 ---
 

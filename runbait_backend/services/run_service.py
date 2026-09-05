@@ -27,6 +27,10 @@ def get_run(run_id: str) -> Optional[dict]:
         return res.data[0]
     return None
 
+def get_all_runs_for_user(user_id: str) -> list:
+    res = supabase.table("runs").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return res.data if res.data else []
+
 def update_run_status(run_id: str, status: str, results_update: dict = None, error: str = None):
     # Fetch current results to merge them
     run = get_run(run_id)

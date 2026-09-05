@@ -10,9 +10,11 @@ export const metadata = {
   description: "RunBait AI QA dashboard.",
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
   const user = await getSession();
   if (!user) redirect("/signin");
+  const params = await searchParams;
+  const currentTab = params.tab || "overview";
 
   return (
     <div className="min-h-screen flex">
@@ -25,10 +27,15 @@ export default async function DashboardPage() {
         </div>
 
         <nav className="flex flex-col gap-1 text-sm text-zinc-400">
-          <SidebarItem icon={<LayoutDashboard className="w-4 h-4" />} label="Overview" active />
-          <SidebarItem icon={<Database className="w-4 h-4" />} label="Repositories" />
-          <SidebarItem icon={<Activity className="w-4 h-4" />} label="Analyses" />
-          <SidebarItem icon={<Settings className="w-4 h-4" />} label="Settings" />
+          <Link href="/dashboard?tab=overview">
+            <SidebarItem icon={<LayoutDashboard className="w-4 h-4" />} label="Overview" active={currentTab === "overview"} />
+          </Link>
+          <Link href="/dashboard?tab=repositories">
+            <SidebarItem icon={<Database className="w-4 h-4" />} label="Repositories" active={currentTab === "repositories"} />
+          </Link>
+          <Link href="/dashboard?tab=analyses">
+            <SidebarItem icon={<Activity className="w-4 h-4" />} label="Analyses" active={currentTab === "analyses"} />
+          </Link>
         </nav>
 
         {/* User + logout at bottom */}
@@ -64,7 +71,7 @@ export default async function DashboardPage() {
 
       {/* Main */}
       <main className="flex-1 p-8 overflow-auto">
-        <DashboardClient user={user} />
+        <DashboardClient user={user} currentTab={currentTab} />
       </main>
     </div>
   );

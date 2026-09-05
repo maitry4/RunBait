@@ -37,3 +37,20 @@ export async function POST(request: NextRequest) {
   const data = await resp.json();
   return NextResponse.json(data, { status: resp.status });
 }
+
+// GET /api/runs → proxy to FastAPI GET /api/runs
+export async function GET(request: NextRequest) {
+  const authHeaders = await getAuthHeaders();
+  if (!authHeaders.Authorization) {
+    return NextResponse.json({ detail: "Not authenticated" }, { status: 401 });
+  }
+
+  const resp = await fetch(`${BACKEND_URL}/api/runs`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json", ...authHeaders },
+    cache: "no-store",
+  });
+
+  const data = await resp.json();
+  return NextResponse.json(data, { status: resp.status });
+}

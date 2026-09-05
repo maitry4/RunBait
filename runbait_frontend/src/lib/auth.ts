@@ -7,7 +7,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
+const RAW_BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:8000";
+const BACKEND_URL = RAW_BACKEND_URL.endsWith('/') ? RAW_BACKEND_URL.slice(0, -1) : RAW_BACKEND_URL;
 const COOKIE_NAME = "access_token";
 
 export interface User {

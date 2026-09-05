@@ -117,7 +117,7 @@ async def run_phase_6(run_id: str, execution_results: list):
     gemini_key = os.getenv("GEMINI_API_KEY")
     try:
         gemini_client = genai.Client(api_key=gemini_key)
-        from schemas import PlaywrightResult, FlowFile, PRImpactResult
+        from schemas import FlowExecutionResult, FlowFile, PRImpactResult
         
         # reconstruct needed objects
         flows_dict = run["results"].get("flows", {})
@@ -131,7 +131,7 @@ async def run_phase_6(run_id: str, execution_results: list):
         
         verdicts = []
         for exec_res_dict in execution_results:
-            exec_result = PlaywrightResult.model_validate(exec_res_dict)
+            exec_result = FlowExecutionResult.model_validate(exec_res_dict)
             flow_def = next((f for f in flow_file.flows if f.name == exec_result.flow_name), None)
             if not flow_def:
                 continue

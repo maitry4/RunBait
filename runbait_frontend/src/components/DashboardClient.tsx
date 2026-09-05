@@ -25,6 +25,7 @@ export default function DashboardClient({ user, currentTab = "overview" }: { use
   const [isLoading, setIsLoading] = useState(false);
   const [currentRun, setCurrentRun] = useState<RunData | null>(null);
   const [allRuns, setAllRuns] = useState<any[]>([]);
+  const [runsFilter, setRunsFilter] = useState<"all" | "completed" | "succeeded" | "failed" | "in_progress">("all");
 
   const fetchAllRuns = async () => {
     try {
@@ -116,39 +117,92 @@ export default function DashboardClient({ user, currentTab = "overview" }: { use
   }
 
   if (currentTab === "analyses") {
+    const filteredRuns = allRuns.filter(run => {
+      if (runsFilter === "all") return true;
+      if (runsFilter === "completed") return run.status === "completed";
+      if (runsFilter === "succeeded") return run.status === "completed" && run.results?.report?.overall_status === "PASS";
+      if (runsFilter === "failed") return run.status === "failed" || (run.status === "completed" && run.results?.report?.overall_status !== "PASS");
+      if (runsFilter === "in_progress") return ["pending", "phase1-3", "github-actions", "phase6"].includes(run.status);
+      return true;
+    });
+
     return (
       <div className="max-w-4xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Analyses</h1>
-          <p className="text-sm text-zinc-500 mt-1">History of all PR analyses.</p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Analyses</h1>
+            <p className="text-sm text-zinc-500 mt-1">History of all PR analyses.</p>
+          </div>
+          <div className="flex bg-black/50 border border-white/10 rounded overflow-hidden">
+            <button onClick={() => setRunsFilter("all")} className={`px-3 py-1.5 text-xs font-medium ${runsFilter === "all" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-white transition-colors"}`}>All</button>
+            <button onClick={() => setRunsFilter("completed")} className={`px-3 py-1.5 text-xs font-medium border-l border-white/5 ${runsFilter === "completed" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-white transition-colors"}`}>Completed</button>
+            <button onClick={() => setRunsFilter("succeeded")} className={`px-3 py-1.5 text-xs font-medium border-l border-white/5 ${runsFilter === "succeeded" ? "bg-green-500/20 text-green-400" : "text-zinc-500 hover:text-white transition-colors"}`}>Succeeded</button>
+            <button onClick={() => setRunsFilter("failed")} className={`px-3 py-1.5 text-xs font-medium border-l border-white/5 ${runsFilter === "failed" ? "bg-red-500/20 text-red-400" : "text-zinc-500 hover:text-white transition-colors"}`}>Failed</button>
+            <button onClick={() => setRunsFilter("in_progress")} className={`px-3 py-1.5 text-xs font-medium border-l border-white/5 ${runsFilter === "in_progress" ? "bg-cyan-500/20 text-cyan-400" : "text-zinc-500 hover:text-white transition-colors"}`}>In Progress</button>
+          </div>
         </div>
-        <div className="space-y-4">
-          {allRuns.length === 0 ? (
-            <p className="text-zinc-500 text-sm">No analyses found.</p>
+        <div className="space-y-6">
+          {filteredRuns.length === 0 ? (
+            <p className="text-zinc-500 text-sm">No analyses found matching the filter.</p>
           ) : (
-            allRuns.map(run => (
+            filteredRuns.map(run => (
               <div key={run.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-6 flex flex-col gap-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-cyan-400" />
-                    <span className="font-medium text-white">{run.repo} (PR #{run.pr_number})</span>
+                <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-cyan-400" />
+                      <span className="font-semibold text-lg text-white">{run.repo}</span>
+                      <span className="text-zinc-400 text-sm">PR #{run.pr_number}</span>
+                    </div>
                   </div>
-                  {run.status === "completed" && <span className="px-2 py-1 text-xs rounded bg-green-500/10 text-green-400 border border-green-500/20">Success</span>}
-                  {run.status === "failed" && <span className="px-2 py-1 text-xs rounded bg-red-500/10 text-red-400 border border-red-500/20">Failed</span>}
-                  {["pending", "phase1-3", "github-actions", "phase6"].includes(run.status) && <span className="px-2 py-1 text-xs rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">In Progress ({run.status})</span>}
+                  {run.status === "completed" && <span className="px-2 py-1 text-xs rounded font-medium bg-green-500/10 text-green-400 border border-green-500/20">Completed</span>}
+                  {run.status === "failed" && <span className="px-2 py-1 text-xs rounded font-medium bg-red-500/10 text-red-400 border border-red-500/20">Failed</span>}
+                  {["pending", "phase1-3", "github-actions", "phase6"].includes(run.status) && <span className="px-2 py-1 text-xs rounded font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">In Progress ({run.status})</span>}
                 </div>
+
                 {run.status === "failed" && (
-                  <div className="text-sm text-red-400 bg-red-500/5 p-3 rounded border border-red-500/10">
-                    {run.error || "Unknown error"}
+                  <div className="text-sm text-red-400 bg-red-500/5 p-4 rounded border border-red-500/10">
+                    <span className="font-semibold">Pipeline Error:</span> {run.error || "Unknown error"}
                   </div>
                 )}
+                
                 {run.status === "completed" && run.results?.report && (
-                  <div className="text-sm text-zinc-300 bg-black/30 p-4 rounded border border-white/5">
-                    <div className="font-semibold text-white mb-2 flex items-center gap-2">
-                      {run.results.report.overall_status === "PASS" ? <CheckCircle className="w-4 h-4 text-green-500" /> : <XCircle className="w-4 h-4 text-red-500" />}
-                      Overall Status: {run.results.report.overall_status}
+                  <div className="flex flex-col gap-6">
+                    <div className="text-sm text-zinc-300 bg-black/30 p-4 rounded border border-white/5">
+                      <div className="font-semibold text-white mb-2 flex items-center gap-2">
+                        {run.results.report.overall_status === "PASS" ? <CheckCircle className="w-5 h-5 text-green-500" /> : <XCircle className="w-5 h-5 text-red-500" />}
+                        Overall Status: {run.results.report.overall_status}
+                      </div>
+                      <p className="whitespace-pre-wrap leading-relaxed">{run.results.report.summary}</p>
                     </div>
-                    <p className="mb-4 whitespace-pre-wrap">{run.results.report.summary}</p>
+
+                    {/* Detailed Verdicts */}
+                    {run.results.report.verdicts && run.results.report.verdicts.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-2">Detailed Verdicts</h3>
+                        {run.results.report.verdicts.map((verdict: any, idx: number) => (
+                          <div key={idx} className={`p-4 rounded border ${verdict.bug_found ? 'bg-red-500/5 border-red-500/20' : 'bg-green-500/5 border-green-500/20'}`}>
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2 font-medium text-white">
+                                {verdict.bug_found ? <XCircle className="w-4 h-4 text-red-400" /> : <CheckCircle className="w-4 h-4 text-green-400" />}
+                                Flow: {verdict.flow}
+                              </div>
+                              {verdict.bug_found && (
+                                <div className="flex gap-2">
+                                  {verdict.severity && <span className="px-2 py-0.5 text-[10px] rounded bg-red-500/20 text-red-400 uppercase">{verdict.severity}</span>}
+                                  {verdict.bug_type && <span className="px-2 py-0.5 text-[10px] rounded bg-orange-500/20 text-orange-400 uppercase">{verdict.bug_type}</span>}
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-sm text-white font-medium mb-1">{verdict.description}</p>
+                            <p className="text-xs text-zinc-400 mb-2 leading-relaxed">{verdict.details}</p>
+                            {verdict.evidence_step !== null && verdict.evidence_step !== undefined && (
+                              <p className="text-[11px] text-zinc-500 uppercase tracking-wider mt-3">Evidence found at step {verdict.evidence_step}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -161,7 +161,7 @@ def judge_flow(
 
 def build_report(
     verdicts: list[RegressionVerdict],
-    output_dir: Path,
+    output_dir: Optional[Path] = None,
 ) -> AnalysisReport:
     """
     Aggregate all per-flow verdicts into a final AnalysisReport
@@ -200,9 +200,10 @@ def build_report(
         summary=summary,
     )
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    report_path = output_dir / "report.json"
-    with open(report_path, "w") as f:
-        json.dump(report.model_dump(), f, indent=2)
+    if output_dir:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        report_path = output_dir / "report.json"
+        with open(report_path, "w") as f:
+            json.dump(report.model_dump(), f, indent=2)
 
     return report

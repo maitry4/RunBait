@@ -2,230 +2,272 @@
 
 **Your PR changed the code. Did it break the product?**
 
-RunBait automatically tests the user journeys affected by your pull request — using the real application, real browser interactions, and AI-powered visual and behavioral analysis.
+[RunBait](https://run-bait.vercel.app/) is AI QA for pull requests. It reads the diff, figures out which user journeys are at risk, boots the real app, drives a real browser, and tells you what actually broke — with screenshots, severity, and a confidence score.
+
+No test files to write. No selectors to maintain. Sign in with GitHub and run an analysis.
+
+**Live product:** [https://run-bait.vercel.app/](https://run-bait.vercel.app/)
 
 ---
 
-## The problem
+## Why it exists
 
-Pull requests change code every day. Unit tests catch syntax and logic, but they rarely answer the question that actually matters: **did this change break something a real user would notice?**
+Unit tests catch logic. CI catches builds. Neither answers the question that ships (or sinks) a PR:
 
-Manual QA is slow. Full end-to-end suites are brittle and expensive to maintain. Developers ship PRs hoping nothing regressed — and users find out when they do.
+> Would a real user still be able to complete this flow?
 
-## The solution
-
-RunBait connects to your GitHub repository, reads your PR diff, discovers which user journeys are affected, launches your app in a real browser, runs targeted Playwright workflows, and uses multimodal AI to judge whether anything regressed — then posts the result directly on the PR.
-
+Manual QA does not scale with every pull request. Full end-to-end suites rot as the UI changes. RunBait sits in the gap: **targeted, PR-aware journeys on the real application**, judged by a multimodal model that can see the screen.
 
 ---
 
-## How it works
+## Use it in under a minute
+
+The frontend and backend are live and talk to each other end to end. You do not need to clone this repo to try the product.
+
+1. Open **[run-bait.vercel.app](https://run-bait.vercel.app/)**
+2. Click **Connect GitHub** and sign in
+3. On **Overview**, pick a pull request
+4. Click **Run analysis**
+5. Watch status move through discovery → browser run → judgment
+6. Open **Analyses** for the report: issues, flows tested, evidence, confidence
+
+That is the whole loop.
+
+### Demo path (zero setup)
+
+The dashboard includes a demo against `maitry4/opensource.razorpay.com`. Choose a PR number and run. RunBait maps the change, starts the app in GitHub Actions, executes Playwright flows, and returns a verdict in the UI.
+
+### Your own repo
+
+Switch to a custom repository, paste `owner/repo` and the PR number, optionally override install / start commands (`npm install`, `npm run dev` by default), and run the same pipeline.
 
 ```
-PR opened
-    ↓
-AI understands the change
-    ↓
-Affected journeys identified
-    ↓
-Real app launched
-    ↓
-Browser tests executed
-    ↓
-Screenshots analyzed
-    ↓
-Regression reported
+Connect GitHub  →  Pick a PR  →  Run  →  Real browser  →  Report
 ```
-
-### Example output
-
-After analysis completes, a developer sees this on their PR:
-
-```
-🤖 RunBait QA Report
-
-RunBait analyzed this PR against the real application.
-
-Flows tested:
-✓ Checkout
-✓ Cart
-
-🚨 1 regression detected
-
-HIGH — Checkout
-The payment button remains disabled after
-the payment form is completed.
-
-Evidence: Step 7
-Confidence: 94%
-
-View detailed analysis → RunBait
-```
-
-No dashboard required. The result appears where developers already work: **GitHub**.
 
 ---
 
-## Features
+## What you get
 
-| Feature | Description |
+| | |
 | --- | --- |
-| **GitHub-native** | OAuth login, repo selection, PR selection — minimal UI, maximum signal |
-| **Journey discovery** | AI analyzes your codebase to identify testable user flows (login, checkout, search, etc.) |
-| **PR-aware testing** | Only journeys potentially affected by the diff are selected — not your entire test suite |
-| **Real browser execution** | Playwright runs against the actual application via GitHub Actions |
-| **Multimodal regression judge** | Gemini analyzes screenshots + step metadata to detect visual and behavioral regressions |
-| **PR comments** | Structured QA reports posted directly on the pull request |
+| **GitHub-native auth** | OAuth sign-in. Your session is an HttpOnly JWT. The dashboard never handles the token in JavaScript. |
+| **Journey discovery** | Gemini reads a distilled repo summary and writes testable flows (search, filters, checkout, …). |
+| **PR-aware selection** | Only journeys tied to the diff run — not a kitchen-sink suite. |
+| **Real browser execution** | Playwright against the PR head, not mocks. Screenshots at checkpoints and on failure. |
+| **Visual + behavioral judge** | Gemini scores screenshots and step logs: regression or clean, with severity and confidence. |
+| **Live dashboard** | Overview to launch, Repositories you have touched, Analyses with history and filters. |
+
+Analyses run in the background. The dashboard polls every few seconds. You can leave and come back.
 
 ---
 
-## Architecture
+## Product architecture
+
+RunBait is two services that stay in sync: a Next.js app on Vercel, and a FastAPI orchestrator that owns the pipeline.
 
 ```
-┌─────────────┐     POST /analysis      ┌─────────────┐
-│   Next.js   │ ──────────────────────► │   FastAPI   │
-│  Dashboard  │ ◄── analysis_id ─────── │ Orchestrator│
-└─────────────┘                         └──────┬──────┘
-                                               │
-                    ┌──────────────────────────┼──────────────────────────┐
-                    ▼                          ▼                          ▼
-             GitHub API                  Gemini (AI)              GitHub Actions
-          PR diff, metadata         journey discovery,          app startup,
-          repo structure            PR impact analysis,         Playwright runner,
-                                    regression judging           artifact upload
+                         https://run-bait.vercel.app
+                         ┌─────────────────────────┐
+                         │  Next.js 16  ·  React 19 │
+                         │  Landing  ·  Dashboard   │
+                         │  /api/*  auth + run proxy│
+                         └────────────┬────────────┘
+                                      │ Bearer JWT (server-side)
+                                      ▼
+                         ┌─────────────────────────┐
+                         │  FastAPI  ·  Orchestrator│
+                         │  OAuth, runs, webhooks   │
+                         └──────┬──────┬──────┬────┘
+                                │      │      │
+                    ┌───────────┘      │      └───────────┐
+                    ▼                  ▼                  ▼
+              GitHub API         Google Gemini      GitHub Actions
+           PR diff, tree,      flow discovery,      checkout PR head,
+           OAuth profile       impact ranking,      start app, Playwright,
+                               regression judge     screenshot artifacts
+                    │
+                    ▼
+              Supabase (Postgres)
+           users, runs, JSON results
 ```
 
-**FastAPI** is the brain — it orchestrates analysis, never blocks on long-running work.
+**The dashboard is the product surface.** It never talks to FastAPI from the browser. Next.js API routes read the HttpOnly cookie and forward requests so CORS stays simple and tokens stay off the client.
 
-**GitHub Actions** is the execution environment — it checks out the repo, starts the app, and runs the RunBait browser runner.
+**FastAPI is the brain.** `POST /api/runs` returns immediately with a `run_id`. Phases 1–3 run as a background task. When flows are selected, the orchestrator dispatches `.github/workflows/runbait_worker.yml`. The worker posts results to `/api/runs/{id}/webhook`, which kicks off the judge. Status is written to Supabase the whole way: `pending` → `phase1-3` → `github-actions` → `phase6` → `completed` | `failed`.
 
-**Gemini 2.5 Flash-Lite** is the judge — a cost-efficient multimodal model with structured outputs, deliberately scoped to specific QA decisions rather than open-ended reasoning.
+**GitHub Actions is the execution environment.** It checks out *this* repo (the Playwright agent) and the *target* PR head, installs the app, waits on `http://localhost:3000`, runs flows, uploads `output/` as an artifact, and always notifies the backend — including on failure, so a run never sits forever.
+
+**Gemini is scoped, not open-ended.** Discovery and impact use **Gemini 2.5 Flash** with Pydantic structured outputs. The judge uses **Gemini 3.1 Flash-Lite** with screenshots inlined as images. Every AI step returns JSON the pipeline can parse, not free-form prose.
 
 ---
 
-## The Backend Pipeline
+## Pipeline (what happens after you click Run)
 
-RunBait operates in a self-contained 5-phase pipeline. All AI steps use **structured JSON outputs** to ensure deterministic parsing and reliability. The pipeline is designed to run completely headlessly in **GitHub Actions**.
+Five phases. AI only where judgment is required. Everything else is deterministic.
 
-### Phase 1: Repo Context Extraction (Deterministic)
+```
+Phase 1          Phase 2           Phase 3            Phase 4              Phase 6
+Repo context  →  Flow discovery →  PR impact      →  Playwright runner →  Regression judge
+GitHub API       Gemini 2.5 Flash  Gemini 2.5 Flash   GitHub Actions       Gemini 3.1 Flash-Lite
+no clone         FlowFile JSON     selected flows     real Chromium        verdicts + report
+```
 
-Uses the GitHub REST API to extract a lean, structural summary of the repository without cloning it. It infers the framework, routes, and pulls snippets of key config files. This distilled context is much cheaper and more effective for the AI than a raw file dump.
+### 1. Repo context (deterministic)
 
-### Phase 2: Flow Discovery (AI: Gemini 2.5 Flash)
+The GitHub REST API yields a lean summary: README, filtered file tree, `package.json`, framework (Next, Vite, Nuxt, …), detected routes, snippets of config and page files. No full clone. That distilled context is cheaper and more useful than dumping the repo into a prompt.
 
-Reads the distilled repo context and generates a `FlowFile` — a structured list of testable, realistic user journeys.
+### 2. Flow discovery (Gemini 2.5 Flash)
+
+Gemini acts as a QA engineer and emits a `FlowFile`: a short list of realistic journeys with Playwright-friendly steps (`navigate`, `click`, `fill`, `wait`) and checkpoint flags for screenshots.
 
 ```json
 {
   "flows": [
     {
-      "name": "checkout",
-      "description": "User adds items and completes payment",
-      "steps": []
+      "name": "search-filters",
+      "description": "User searches and narrows results with filter tags",
+      "entry_url": "/",
+      "steps": [
+        { "action": "navigate", "target": "/", "checkpoint": true },
+        { "action": "fill", "target": "Search", "value": "S", "checkpoint": true },
+        { "action": "click", "target": "SDKs", "checkpoint": true }
+      ]
     }
   ]
 }
 ```
 
-### Phase 3: PR Impact Analysis (AI: Gemini 2.5 Flash)
+### 3. PR impact (Gemini 2.5 Flash)
 
-Deterministically maps the PR diff's changed files to candidate flows, then asks Gemini to select and prioritize which flows are actually affected by the PR.
+Changed files are keyword-mapped to candidate flows first. Gemini then ranks which journeys the diff actually threatens (`high` / `medium` / `low`) and explains why, citing filenames.
 
 ```json
 {
+  "summary": "Search filter state and result rendering changed.",
   "selected_flows": [
     {
-      "flow": "checkout",
-      "reason": "PaymentButton and checkout state management changed.",
+      "flow": "search-filters",
+      "reason": "Filter tags and search query composition were modified.",
       "priority": "high"
     }
   ]
 }
 ```
 
-### Phase 4: Playwright Runner (Deterministic)
+If nothing is at risk, the run completes with no browser work.
 
-Executes the selected workflows headlessly against the running application. It uses smart locator strategies and automatically captures screenshots at every state-changing step and on any failure. Execution logs and screenshots are saved as artifacts.
+### 4. Playwright runner (GitHub Actions)
 
-### Phase 5: Regression Judge (AI: Gemini 3.1 Flash-Lite)
+The worker:
 
-Given the expected flow, the execution log, the PR diff context, and all captured screenshots (sent as multimodal images), Gemini judges whether a regression occurred.
+1. Checks out RunBait’s agent and the target PR (`refs/pull/{n}/head`)
+2. Runs your install and start commands
+3. Fetches selected flows from `GET /api/runs/{id}/runner-data`
+4. Executes them headlessly against `http://localhost:3000`
+5. Uses layered locators (role → visible text → CSS) so generated steps stay resilient
+6. Captures screenshots on checkpoints and failures, plus console errors
+7. POSTs execution JSON to the orchestrator webhook
+
+### 5. Regression judge (Gemini 3.1 Flash-Lite)
+
+For each flow, the judge sees the intended steps, the execution log, checkpoint screenshots, and PR context. It returns a structured verdict, then those verdicts roll up into one report.
 
 ```json
 {
   "bug_found": true,
   "severity": "high",
   "bug_type": "behavioral",
-  "description": "Checkout payment button remains disabled after payment info is entered.",
-  "evidence_step": 6,
+  "description": "SDK filter does not update results while a search query is active.",
+  "evidence_step": 7,
   "confidence": 0.94,
-  "details": "In step 6, the screenshot shows all required fields are filled, but the 'Pay' button is still greyed out and has the 'disabled' attribute."
+  "details": "After filling search with 'S' and clicking SDKs, the screenshot still shows mixed non-SDK results."
 }
 ```
+
+The dashboard shows overall status, per-flow verdicts, and the evidence trail.
 
 ---
 
-## Workflow format
+## How the frontend and backend stay in sync
 
-Generated browser workflows are stored as JSON — and executed directly by the Playwright runner:
+| Concern | How it works |
+| --- | --- |
+| **Auth** | Browser hits FastAPI `GET /api/auth/github/login` → GitHub → callback upserts the user in Supabase → JWT issued → redirect to Next.js `/api/auth/set-token` which sets an HttpOnly cookie → `/dashboard`. |
+| **API** | Dashboard calls same-origin `/api/runs`. Next.js reads the cookie and proxies to FastAPI with `Authorization: Bearer`. |
+| **Launch** | `POST /api/runs` creates a row (`pending`) and schedules phases 1–3. Client stores `run_id`. |
+| **Progress** | Client polls `GET /api/runs/{id}` every 5s while status is in-flight. |
+| **Worker** | Actions POSTs `/api/runs/{id}/webhook`. Success starts phase 6; failure marks the run failed. |
+| **History** | `GET /api/runs` lists the user’s analyses. Repositories is the unique `owner/repo` set from that list. |
 
-```json
-{
-  "flow": "checkout",
-  "steps": [
-    { "action": "navigate", "target": "/products" },
-    { "action": "click", "target": "Add to cart", "checkpoint": true },
-    { "action": "click", "target": "Checkout", "checkpoint": true }
-  ]
-}
+CORS on FastAPI allows only `FRONTEND_URL`. Session middleware holds OAuth state between login and callback.
+
+---
+
+## Repository layout
+
 ```
-
-Screenshot capture is decided by the workflow generator at each checkpoint. No manual configuration required.
+RunBait/
+├── runbait_frontend/              # Next.js app (Vercel)
+│   ├── src/app/                   # Landing, sign-in, dashboard
+│   ├── src/app/api/               # Cookie-aware proxies (auth, runs)
+│   └── src/components/            # Marketing + DashboardClient
+├── runbait_backend/               # FastAPI orchestrator
+│   ├── main.py                    # App, CORS, routers
+│   ├── routers/                   # auth, users, runs (+ worker webhook)
+│   ├── services/orchestrator.py   # Phases 1–3, Actions dispatch, phase 6
+│   ├── phase1_repo_context.py
+│   ├── phase2_flow_discovery.py
+│   ├── phase3_pr_impact.py
+│   ├── phase4_playwright_runner.py
+│   ├── phase6_regression_judge.py
+│   ├── github_actions_runner.py   # Invoked inside the Actions job
+│   ├── runbait_agent.py           # Optional local CLI
+│   ├── schemas.py                 # Structured AI + execution models
+│   └── migrations/                # Supabase SQL (users, runs)
+└── .github/workflows/
+    └── runbait_worker.yml         # Playwright worker (workflow_dispatch)
+```
 
 ---
 
 ## Tech stack
 
-| Layer | Technology |
+| Layer | Choice |
 | --- | --- |
-| Frontend | Next.js, React, Tailwind CSS |
-| Backend | FastAPI (Python) |
-| Auth | GitHub OAuth |
-| Browser testing | Playwright |
-| Execution | GitHub Actions |
-| AI | Google Gemini 2.5 Flash-Lite (structured outputs) |
-| Artifacts | Screenshots, traces, step metadata, console/network errors |
+| Product UI | [Next.js 16](https://nextjs.org/), React 19, Tailwind CSS 4 |
+| Hosting (frontend) | [Vercel](https://run-bait.vercel.app/) |
+| API | FastAPI, Uvicorn, Authlib (GitHub OAuth), python-jose (JWT) |
+| Data | Supabase (Postgres) — `users`, `runs` |
+| AI | Google Gemini (`gemini-2.5-flash`, `gemini-3.1-flash-lite`), structured outputs |
+| Browser | Playwright (Chromium), smart locators |
+| Execution | GitHub Actions (`ubuntu-latest`) |
+| Auth | GitHub OAuth → JWT in HttpOnly cookie |
 
 ---
 
-## Project structure
+## Local development
 
-```
-RunBait/
-├── runbait_frontend/     # Next.js dashboard (Overview, Repositories, Analyses)
-├── runbait_backend/      # FastAPI orchestrator & pipeline
-└── .github/workflows/    # GitHub Actions for Playwright runner
-```
-
-The frontend includes a unified dashboard to launch analyses (Demo or Custom Repo) and view historical data:
-- **Overview**: Launch new analyses and monitor the active run's progress.
-- **Repositories**: Track all repositories previously analyzed.
-- **Analyses**: View the history of all PR analyses, including success/failure states and detailed regression reports.
-
----
-
-## Getting started
+Use this if you are changing the product itself. Day-to-day QA does not require it — use the [live app](https://run-bait.vercel.app/).
 
 ### Prerequisites
 
 - Node.js 20+
-- npm
+- Python 3.11+
+- A [GitHub OAuth App](https://github.com/settings/developers) with callback `http://localhost:8000/api/auth/github/callback`
+- [Gemini API key](https://aistudio.google.com/apikey)
+- Supabase project (run `runbait_backend/migrations/`)
 
 ### Frontend
 
 ```bash
 cd runbait_frontend
 npm install
+```
+
+Set `BACKEND_URL` and `NEXT_PUBLIC_BACKEND_URL` to your FastAPI origin (default `http://localhost:8000`).
+
+```bash
 npm run dev
 ```
 
@@ -233,22 +275,28 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Backend
 
-To run the standalone AI pipeline locally:
-
 ```bash
 cd runbait_backend
 pip install -r requirements.txt
 playwright install chromium
 ```
 
-Copy `.env.example` to `.env` and add your `GEMINI_API_KEY` and `GITHUB_TOKEN`.
+Copy `.env.example` to `.env` and fill `SUPABASE_*`, `GITHUB_CLIENT_*`, `JWT_SECRET`, `GEMINI_API_KEY`, `GITHUB_TOKEN`, `FRONTEND_URL`, `BACKEND_URL`.
 
 ```bash
-# Run interactively (Phases 1-3 only)
-python runbait_agent.py
+uvicorn main:app --reload --port 8000
+```
 
-# Run full pipeline with Playwright (requires app running locally at the port)
-python runbait_agent.py --app-url http://localhost:3000
+API docs: [http://localhost:8000/docs](http://localhost:8000/docs).
+
+### Standalone pipeline (no dashboard)
+
+Phases 1–3 only, or full Playwright if the app is already running:
+
+```bash
+cd runbait_backend
+python runbait_agent.py
+python runbait_agent.py --app-url http://localhost:3000 --pr 42
 ```
 
 ---

@@ -9,7 +9,7 @@ import FadeIn from "@/components/FadeIn";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-white/20">
+    <div className="min-h-screen selection:bg-white/20">
       <Navbar />
       <main>
         <FadeIn delay={100}><Hero /></FadeIn>

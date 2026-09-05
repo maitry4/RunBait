@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import { getSession, logout } from "@/lib/auth";
 import { Activity, Database, LayoutDashboard, Settings, LogOut, GitPullRequest, Zap } from "lucide-react";
 
@@ -12,15 +14,14 @@ export default async function DashboardPage() {
   if (!user) redirect("/signin");
 
   return (
-    <div className="min-h-screen bg-[#080808] text-white flex">
+    <div className="min-h-screen flex">
       {/* Sidebar */}
       <aside className="w-56 border-r border-white/5 bg-[#0a0a0a] flex flex-col p-4 gap-6 shrink-0">
         <div className="flex items-center gap-2 px-2 pt-2">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-white">
-            <path d="M12 2C9.24 2 7 4.24 7 7c0 2.38 1.58 4.4 3.78 5.03L9 20h2l1-5h1l1 5h2l-1.78-7.97C17.42 11.4 19 9.38 19 7c0-2.76-2.24-5-7-5z" fill="currentColor" opacity="0.9"/>
-            <circle cx="12" cy="7" r="2" fill="#0a0a0a"/>
-          </svg>
-          <span className="font-semibold tracking-tight text-sm">runbait</span>
+          <Link href="/" className="flex items-center gap-2">
+            <Image src="/logo.png" alt="Runbait logo" width={160} height={44} className="h-11 w-auto object-contain" />
+          </Link>
+          {/* <span className="font-semibold tracking-tight text-sm">Runbait</span> */}
         </div>
 
         <nav className="flex flex-col gap-1 text-sm text-zinc-400">
@@ -68,7 +69,7 @@ export default async function DashboardPage() {
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-white">Overview</h1>
             <p className="text-sm text-zinc-500 mt-1">
-              Welcome back, {user.name} 👋
+              Welcome back, {user.name}
             </p>
           </div>
 
@@ -113,11 +114,10 @@ function SidebarItem({
 }) {
   return (
     <div
-      className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${
-        active
-          ? "bg-white/5 text-white"
-          : "hover:bg-white/5 hover:text-white"
-      }`}
+      className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${active
+        ? "bg-white/5 text-white"
+        : "hover:bg-white/5 hover:text-white"
+        }`}
     >
       {icon}
       {label}

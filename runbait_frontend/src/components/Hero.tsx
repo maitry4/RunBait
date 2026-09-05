@@ -1,5 +1,7 @@
-import { ArrowRight, CheckCircle2, PlayCircle, Eye, MessageSquare, LayoutDashboard, Database, Activity, Settings, AlertCircle, Phone, ArrowUpRight } from "lucide-react";
+import { CheckCircle2, LayoutDashboard, Database, Activity, Settings, AlertCircle } from "lucide-react";
 import { GithubIcon } from "@/components/Icons";
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 
 export default function Hero() {
   return (
@@ -16,9 +18,12 @@ export default function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center gap-4 pt-4">
-          <button className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-md bg-white px-6 py-3 text-black font-medium hover:bg-zinc-200 transition-colors">
+          <a
+            href={`${BACKEND_URL}/api/auth/github/login`}
+            className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-md bg-white px-6 py-3 text-black font-medium hover:bg-zinc-200 transition-colors"
+          >
             Connect GitHub
-          </button>
+          </a>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-8 gap-y-4 pt-8 text-sm text-zinc-400">

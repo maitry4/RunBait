@@ -1,5 +1,7 @@
 import { ArrowRight } from "lucide-react";
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+
 export default function CTA() {
   return (
     <section className="py-32 border-t border-white/5">
@@ -9,12 +11,15 @@ export default function CTA() {
         </h2>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <button className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-md bg-white px-8 py-3 text-black font-medium hover:bg-zinc-200 transition-colors">
+          <a
+            href={`${BACKEND_URL}/api/auth/github/login`}
+            className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-md bg-white px-8 py-3 text-black font-medium hover:bg-zinc-200 transition-colors"
+          >
             Connect GitHub
-          </button>
-
+          </a>
         </div>
       </div>
     </section>
   );
 }
+

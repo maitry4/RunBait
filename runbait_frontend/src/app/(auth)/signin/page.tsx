@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 
@@ -28,26 +29,24 @@ export default async function SignInPage({ searchParams }: Props) {
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? "An error occurred.") : null;
 
   return (
-    <main className="min-h-screen bg-[#080808] flex items-center justify-center px-4">
-      {/* Background glow */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-white/[0.02] blur-3xl" />
-      </div>
-
-      <div className="relative w-full max-w-sm">
+    <main className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
         {/* Card */}
-        <div className="rounded-2xl border border-white/8 bg-white/[0.03] backdrop-blur-sm p-8 shadow-2xl">
+        <div className="rounded-2xl border border-white/8 bg-[#0d0d0d] p-8 shadow-2xl">
           {/* Logo + title */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-white/5 border border-white/10 mb-4">
-              {/* RunBait icon — simple bait hook shape */}
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-white">
-                <path d="M12 2C9.24 2 7 4.24 7 7c0 2.38 1.58 4.4 3.78 5.03L9 20h2l1-5h1l1 5h2l-1.78-7.97C17.42 11.4 19 9.38 19 7c0-2.76-2.24-5-7-5z" fill="currentColor" opacity="0.9"/>
-                <circle cx="12" cy="7" r="2" fill="#080808"/>
-              </svg>
+            <div className="flex justify-center mb-5">
+              <Image
+                src="/logo_squared.png"
+                alt="RunBait"
+                width={140}
+                height={38}
+                className="h-16 w-auto object-contain"
+                priority
+              />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
-              Welcome to RunBait
+            <h1 className="text-3xl font-bold text-white tracking-tight">
+              Welcome
             </h1>
             <p className="text-sm text-zinc-500 mt-2">
               AI-powered QA for your pull requests
@@ -75,16 +74,12 @@ export default async function SignInPage({ searchParams }: Props) {
 
           {/* Footer note */}
           <p className="mt-6 text-center text-xs text-zinc-600">
-            By signing in, you agree to let RunBait access your GitHub repositories
-            and Actions on your behalf.
+            By signing in, you agree to let RunBait access your GitHub
+            repositories and Actions on your behalf.
           </p>
         </div>
-
-        {/* Subtle bottom text */}
-        <p className="mt-6 text-center text-xs text-zinc-700">
-          RunBait · AI QA for Pull Requests
-        </p>
       </div>
     </main>
   );
 }
+

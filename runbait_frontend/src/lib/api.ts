@@ -1,11 +1,18 @@
-import axios from 'axios';
+/**
+ * Client-side API helper.
+ *
+ * The dashboard client code calls these functions. Because the access_token
+ * is stored in an HttpOnly cookie (not accessible to JS), we proxy through
+ * Next.js API routes instead of calling FastAPI directly. The Next.js routes
+ * run server-side, can read the cookie, and forward requests with a proper
+ * Bearer token.
+ */
+import axios from "axios";
 
-const RAW_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8000';
-const BACKEND_URL = RAW_BACKEND_URL.endsWith('/') ? RAW_BACKEND_URL.slice(0, -1) : RAW_BACKEND_URL;
-
+// All requests go to our own Next.js API routes (same origin → no CORS issues)
 const api = axios.create({
-  baseURL: BACKEND_URL,
-  withCredentials: true, // Important for cookies
+  baseURL: "/",  // relative — always same origin
+  withCredentials: true,
 });
 
 export default api;

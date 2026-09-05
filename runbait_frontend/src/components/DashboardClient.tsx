@@ -9,7 +9,7 @@ type RunStatus = "pending" | "phase1-3" | "github-actions" | "phase6" | "complet
 interface RunData {
   id: string;
   repo: string;
-  pr_number: int;
+  pr_number: number;
   status: RunStatus;
   is_demo: boolean;
   error?: string;
@@ -135,10 +135,18 @@ export default function DashboardClient({ user }: { user: any }) {
 
             <button
               onClick={handleRun}
-              disabled={isLoading || (currentRun && !["completed", "failed"].includes(currentRun.status))}
+              disabled={
+                isLoading ||
+                (!!currentRun &&
+                  !["completed", "failed"].includes(currentRun.status))
+              }
               className="w-full mt-4 flex items-center justify-center gap-2 rounded bg-white text-black font-semibold py-2 px-4 hover:bg-zinc-200 disabled:opacity-50 transition"
             >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Play className="w-4 h-4" />
+              )}
               Run Analysis
             </button>
           </div>
@@ -152,18 +160,18 @@ export default function DashboardClient({ user }: { user: any }) {
           {!currentRun ? (
             <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 p-8">
               <GitPullRequest className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm text-center">No analysis running.<br/>Start one from the left panel.</p>
+              <p className="text-sm text-center">No analysis running.<br />Start one from the left panel.</p>
             </div>
           ) : (
             <div className="space-y-4 flex-1">
               <p className="text-sm font-medium text-white mb-4">
                 Analyzing PR #{currentRun.pr_number} on {currentRun.repo}
               </p>
-              
+
               <StatusStep label="Context & Flow Discovery" active={currentRun.status === "phase1-3"} done={["github-actions", "phase6", "completed"].includes(currentRun.status)} />
               <StatusStep label="Playwright Test Execution (GitHub Actions)" active={currentRun.status === "github-actions"} done={["phase6", "completed"].includes(currentRun.status)} />
               <StatusStep label="AI Regression Analysis" active={currentRun.status === "phase6"} done={["completed"].includes(currentRun.status)} />
-              
+
               {currentRun.status === "completed" && (
                 <div className="mt-6 p-4 rounded bg-green-500/10 border border-green-500/20 text-green-400 text-sm flex items-center gap-2">
                   <CheckCircle className="w-4 h-4" /> Analysis Completed Successfully!

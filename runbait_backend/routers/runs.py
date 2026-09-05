@@ -25,7 +25,7 @@ class WebhookPayload(BaseModel):
 @router.post("")
 async def start_run(req: RunRequest, background_tasks: BackgroundTasks, user: dict = Depends(get_current_user)):
     run_id = create_run(
-        user_id=user["id"],
+        user_id=user["sub"],
         repo=req.repo,
         pr_number=req.pr_number,
         is_demo=req.is_demo,
@@ -41,7 +41,7 @@ async def get_run_status(run_id: str, user: dict = Depends(get_current_user)):
     run = get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
-    if run["user_id"] != user["id"]:
+    if run["user_id"] != user["sub"]:
         raise HTTPException(status_code=403, detail="Not authorized")
     return run
 

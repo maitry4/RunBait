@@ -17,7 +17,7 @@ interface RunData {
 
 export default function DashboardClient({ user }: { user: any }) {
   const [activeTab, setActiveTab] = useState<"demo" | "beta">("demo");
-  const [demoPR, setDemoPR] = useState("42"); // default dummy PR
+  const [demoPR, setDemoPR] = useState("1"); // default dummy PR
   const [betaRepo, setBetaRepo] = useState("");
   const [betaPR, setBetaPR] = useState("");
   const [startCmd, setStartCmd] = useState("npm run dev");

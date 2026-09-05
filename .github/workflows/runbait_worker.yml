@@ -35,16 +35,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 18
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # We need to checkout the agent code first to a specific directory so we can run Phase 4
+      # Checkout the RunBait agent code so we can run Phase 4
       - name: Checkout RunBait Agent
         uses: actions/checkout@v4
         with:
@@ -56,7 +56,7 @@ jobs:
           pip install -r runbait-agent/runbait_backend/requirements.txt
           playwright install --with-deps chromium
 
-      # Now checkout the target repository
+      # Checkout the target repository at the PR head
       - name: Checkout Target PR
         uses: actions/checkout@v4
         with:
@@ -73,8 +73,7 @@ jobs:
         run: |
           ${{ inputs.start_command }} &
           echo "Waiting for app to start..."
-          # A simple wait for the port to be active
-          npx wait-on http://localhost:3000 || sleep 15
+          npx wait-on http://localhost:3000 --timeout 60000 || echo "App did not start in time, continuing anyway"
 
       - name: Run Playwright Tests
         env:
@@ -84,10 +83,19 @@ jobs:
           cd runbait-agent/runbait_backend
           python github_actions_runner.py
 
+      # Upload screenshots — v4 required (v3 was deprecated in April 2024)
       - name: Upload Screenshots Artifact
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: runbait-output-${{ inputs.run_id }}
           path: runbait-agent/runbait_backend/output/
           retention-days: 7
+
+      # Always notify the backend on failure so the run doesn't get stuck
+      - name: Notify Backend on Failure
+        if: failure()
+        run: |
+          curl -s -X POST "${{ inputs.callback_url }}" \
+            -H "Content-Type: application/json" \
+            -d '{"status": "failed", "error": "GitHub Actions workflow failed. Check the Actions log for details.", "execution_results": []}'

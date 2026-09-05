@@ -1,21 +1,159 @@
 @import "tailwindcss";
 
 :root {
-  --background: #09090b; /* Very dark zinc background similar to the image */
-  --foreground: #fafafa;
+  --background: #000000;
+  --foreground: #ededed;
+  --muted: #888888;
+  --border: #333333;
+  --border-subtle: #1a1a1a;
+  --surface: #0a0a0a;
+  --surface-hover: #111111;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-surface: var(--surface);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: #000;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: #fff;
+  color: #000;
+}
+
+/* Shared controls — Vercel-like density */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.btn-primary {
+  background: #fff;
+  color: #000;
+}
+
+.btn-primary:hover {
+  background: #e4e4e4;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: #ededed;
+  border: 1px solid #333;
+}
+
+.btn-secondary:hover {
+  background: #111;
+  border-color: #444;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: #888;
+}
+
+.btn-ghost:hover {
+  color: #ededed;
+}
+
+.input {
+  width: 100%;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #000;
+  color: #ededed;
+  font-size: 0.8125rem;
+}
+
+.input::placeholder {
+  color: #666;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #666;
+}
+
+.input:disabled {
+  color: #888;
+  background: #0a0a0a;
+}
+
+.panel {
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #0a0a0a;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  border: 1px solid #333;
+  background: #0a0a0a;
+  font-size: 0.6875rem;
+  color: #888;
+  letter-spacing: -0.01em;
+}
+
+.dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 75%);
 }

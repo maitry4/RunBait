@@ -2,119 +2,93 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getSession, logout } from "@/lib/auth";
-import { Activity, Database, LayoutDashboard, Settings, LogOut, GitPullRequest, Zap } from "lucide-react";
 import DashboardClient from "@/components/DashboardClient";
 
 export const metadata = {
-  title: "Dashboard — RunBait",
-  description: "RunBait AI QA dashboard.",
+  title: "Dashboard",
+  description: "Runbait AI QA dashboard.",
 };
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | undefined }>;
+}) {
   const user = await getSession();
   if (!user) redirect("/signin");
   const params = await searchParams;
   const currentTab = params.tab || "overview";
 
+  const nav = [
+    { href: "/dashboard?tab=overview", tab: "overview", label: "Overview" },
+    { href: "/dashboard?tab=repositories", tab: "repositories", label: "Repositories" },
+    { href: "/dashboard?tab=analyses", tab: "analyses", label: "Analyses" },
+  ];
+
   return (
-    <div className="min-h-screen flex">
-      {/* Sidebar */}
-      <aside className="w-56 border-r border-white/5 bg-[#0a0a0a] flex flex-col p-4 gap-6 shrink-0">
-        <div className="flex items-center gap-2 px-2 pt-2">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Runbait logo" width={160} height={44} className="h-11 w-auto object-contain" />
+    <div className="flex min-h-screen flex-col bg-black md:flex-row">
+      <aside className="flex shrink-0 flex-col border-b border-[#1a1a1a] md:w-[232px] md:border-b-0 md:border-r">
+        <div className="flex h-12 items-center px-4">
+          <Link href="/">
+            <Image src="/logo.png" alt="Runbait" width={120} height={28} className="h-5 w-auto object-contain" />
           </Link>
         </div>
-
-        <nav className="flex flex-col gap-1 text-sm text-zinc-400">
-          <Link href="/dashboard?tab=overview">
-            <SidebarItem icon={<LayoutDashboard className="w-4 h-4" />} label="Overview" active={currentTab === "overview"} />
-          </Link>
-          <Link href="/dashboard?tab=repositories">
-            <SidebarItem icon={<Database className="w-4 h-4" />} label="Repositories" active={currentTab === "repositories"} />
-          </Link>
-          <Link href="/dashboard?tab=analyses">
-            <SidebarItem icon={<Activity className="w-4 h-4" />} label="Analyses" active={currentTab === "analyses"} />
-          </Link>
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:overflow-visible md:px-3 md:py-2">
+          {nav.map((item) => {
+            const active = currentTab === item.tab;
+            return (
+              <Link
+                key={item.tab}
+                href={item.href}
+                className={`shrink-0 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
+                  active ? "bg-[#111] text-white" : "text-[#888] hover:bg-[#0a0a0a] hover:text-white"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
-
-        {/* User + logout at bottom */}
-        <div className="mt-auto border-t border-white/5 pt-4">
-          <div className="flex items-center gap-2 px-2 mb-3">
+        <div className="mt-auto hidden border-t border-[#1a1a1a] p-3 md:block">
+          <div className="flex items-center gap-2 px-1">
             {user.avatar_url && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={user.avatar_url}
                 alt={user.name}
-                width={28}
-                height={28}
-                className="rounded-full border border-white/10"
+                width={22}
+                height={22}
+                className="rounded-full"
               />
             )}
             <div className="min-w-0">
-              <p className="text-xs font-medium text-white truncate">{user.name}</p>
-              <p className="text-[10px] text-zinc-500 truncate">@{user.github_login}</p>
+              <p className="truncate text-[13px] text-white">{user.name}</p>
+              <p className="truncate text-[11px] text-[#666]">@{user.github_login}</p>
             </div>
           </div>
-          <form action={logout}>
-            <button
-              id="logout-btn"
-              type="submit"
-              className="flex w-full items-center gap-2 px-2 py-1.5 rounded text-zinc-500 hover:text-white hover:bg-white/5 transition-colors text-xs"
-            >
-              <LogOut className="w-3.5 h-3.5" />
+          <form action={logout} className="mt-2">
+            <button id="logout-btn" type="submit" className="btn btn-ghost h-8 w-full justify-start px-1 text-[13px]">
               Sign out
             </button>
           </form>
         </div>
       </aside>
 
-      {/* Main */}
-      <main className="flex-1 p-8 overflow-auto">
-        <DashboardClient user={user} currentTab={currentTab} />
-      </main>
-    </div>
-  );
-}
-
-function SidebarItem({
-  icon,
-  label,
-  active = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <div
-      className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer transition-colors ${active
-        ? "bg-white/5 text-white"
-        : "hover:bg-white/5 hover:text-white"
-        }`}
-    >
-      {icon}
-      {label}
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-zinc-500 uppercase tracking-wider">{label}</span>
-        {icon}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-12 items-center justify-between border-b border-[#1a1a1a] px-4 sm:px-6">
+          <p className="text-[13px] text-[#888]">
+            {nav.find((n) => n.tab === currentTab)?.label ?? "Overview"}
+          </p>
+          <form action={logout} className="md:hidden">
+            <button type="submit" className="text-[13px] text-[#888] hover:text-white">
+              Sign out
+            </button>
+          </form>
+        </header>
+        <main className="flex-1 overflow-auto p-4 sm:p-6">
+          <DashboardClient user={user} currentTab={currentTab} />
+        </main>
       </div>
-      <p className="text-3xl font-bold text-white">{value}</p>
     </div>
   );
 }

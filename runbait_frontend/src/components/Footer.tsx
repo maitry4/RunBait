@@ -1,61 +1,49 @@
-import { MessageSquare } from "lucide-react";
-import { GithubIcon, TwitterIcon } from "@/components/Icons";
 import Link from "next/link";
+import { GithubIcon } from "@/components/Icons";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/5 py-12">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-16">
-          <div className="col-span-2 lg:col-span-2">
-            <Link href="/" className="text-xl font-bold tracking-tight text-white mb-4 block">
-              runbait
-            </Link>
-            <p className="text-zinc-400 font-mono text-sm mb-6 max-w-xs">
-              AI QA for pull requests.<br />
-              Catch what tests miss.
+    <footer className="border-t border-[#1a1a1a]">
+      <div className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6">
+        <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
+          <div className="col-span-2 md:col-span-1">
+            <p className="text-sm font-medium tracking-tight text-white">Runbait</p>
+            <p className="mt-3 max-w-[200px] text-[13px] leading-relaxed text-[#888]">
+              AI QA for pull requests. Catch what tests miss.
             </p>
-            <div className="flex gap-4 text-zinc-500">
-              <a href="#" className="hover:text-white transition-colors"><GithubIcon className="w-5 h-5" /></a>
-              <a href="#" className="hover:text-white transition-colors"><TwitterIcon className="w-5 h-5" /></a>
-              <a href="#" className="hover:text-white transition-colors"><MessageSquare className="w-5 h-5" /></a>
-            </div>
+            <a
+              href="https://github.com/maitry4/RunBait"
+              className="mt-4 inline-flex text-[#666] hover:text-white"
+              aria-label="GitHub"
+            >
+              <GithubIcon className="h-4 w-4" />
+            </a>
           </div>
-
           <div>
-            <h4 className="text-white font-medium mb-4 text-sm">Product</h4>
-            <ul className="space-y-3 text-sm text-zinc-400">
-              <li><Link href="#" className="hover:text-white transition-colors">Features</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Pricing</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Changelog</Link></li>
+            <p className="text-[13px] font-medium text-white">Product</p>
+            <ul className="mt-3 space-y-2 text-[13px] text-[#888]">
+              <li><Link href="#features" className="hover:text-white">Features</Link></li>
+              <li><Link href="#how-it-works" className="hover:text-white">How it works</Link></li>
+              <li><Link href="/signin" className="hover:text-white">Dashboard</Link></li>
             </ul>
           </div>
-
           <div>
-            <h4 className="text-white font-medium mb-4 text-sm">Resources</h4>
-            <ul className="space-y-3 text-sm text-zinc-400">
-              <li><Link href="#" className="hover:text-white transition-colors">Docs</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Blog</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Help center</Link></li>
+            <p className="text-[13px] font-medium text-white">Resources</p>
+            <ul className="mt-3 space-y-2 text-[13px] text-[#888]">
+              <li><a href="https://github.com/maitry4/RunBait" className="hover:text-white">GitHub</a></li>
+              <li><a href="https://github.com/maitry4/RunBait#readme" className="hover:text-white">Docs</a></li>
             </ul>
           </div>
-
           <div>
-            <h4 className="text-white font-medium mb-4 text-sm">Company</h4>
-            <ul className="space-y-3 text-sm text-zinc-400">
-              <li><Link href="#" className="hover:text-white transition-colors">About</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Careers</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Contact</Link></li>
+            <p className="text-[13px] font-medium text-white">Legal</p>
+            <ul className="mt-3 space-y-2 text-[13px] text-[#888]">
+              <li><span className="text-[#555]">Privacy</span></li>
+              <li><span className="text-[#555]">Terms</span></li>
             </ul>
           </div>
         </div>
-
-        <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-zinc-500">
-          <p>© 2025 Runbait Inc.</p>
-          <div className="flex gap-6">
-            <Link href="#" className="hover:text-white transition-colors">Privacy</Link>
-            <Link href="#" className="hover:text-white transition-colors">Terms</Link>
-          </div>
+        <div className="mt-16 flex items-center justify-between border-t border-[#1a1a1a] pt-6 text-[12px] text-[#555]">
+          <p>© {new Date().getFullYear()} Runbait</p>
         </div>
       </div>
     </footer>

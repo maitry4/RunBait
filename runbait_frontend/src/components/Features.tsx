@@ -1,110 +1,68 @@
-import { CheckCircle2, Clock, Layers, Zap } from "lucide-react";
-
 export default function Features() {
   return (
-    <section id="features" className="py-24 border-t border-white/5">
-      <div className="max-w-7xl mx-auto px-6 flex flex-col gap-32">
-
-        {/* Feature 1 */}
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
+    <section id="features" className="border-t border-[#1a1a1a] py-24">
+      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 space-y-24">
+        <div className="grid items-start gap-12 lg:grid-cols-2">
           <div>
-            <h2 className="text-4xl font-bold tracking-tight text-white mb-8">
-              Real tests. Real bugs. <br /> Real confidence.
+            <p className="text-[13px] text-[#888]">Why Runbait</p>
+            <h2 className="mt-2 text-[28px] font-semibold tracking-[-0.03em] text-white sm:text-[36px]">
+              Real tests. Real bugs. Real confidence.
             </h2>
-            <div className="flex flex-col gap-6">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-zinc-500 shrink-0 mt-0.5" />
-                <p className="text-zinc-300 font-mono text-sm leading-relaxed">AI understands your code and maps what matters.</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-zinc-500 shrink-0 mt-0.5" />
-                <p className="text-zinc-300 font-mono text-sm leading-relaxed">Real browser execution, not mocked tests.</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-zinc-500 shrink-0 mt-0.5" />
-                <p className="text-zinc-300 font-mono text-sm leading-relaxed">Visual & behavioral analysis with screenshots.</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-zinc-500 shrink-0 mt-0.5" />
-                <p className="text-zinc-300 font-mono text-sm leading-relaxed">Detailed PR comments so nothing slips through.</p>
-              </div>
-            </div>
+            <ul className="mt-8 space-y-4 text-[14px] leading-relaxed text-[#888]">
+              <li className="flex gap-3">
+                <span className="mt-2 size-1 shrink-0 rounded-full bg-[#555]" />
+                AI maps the diff to the journeys a user would actually take.
+              </li>
+              <li className="flex gap-3">
+                <span className="mt-2 size-1 shrink-0 rounded-full bg-[#555]" />
+                Playwright runs against the live app — not mocks.
+              </li>
+              <li className="flex gap-3">
+                <span className="mt-2 size-1 shrink-0 rounded-full bg-[#555]" />
+                Screenshots and step logs are judged for visual and behavioral regressions.
+              </li>
+              <li className="flex gap-3">
+                <span className="mt-2 size-1 shrink-0 rounded-full bg-[#555]" />
+                Results land in the dashboard while the analysis runs in the background.
+              </li>
+            </ul>
           </div>
 
-          <div className="bg-[#0c0c0c] border border-white/10 rounded-xl p-6 shadow-2xl relative overflow-hidden">
-            <div className="text-zinc-400 text-sm font-mono mb-4 border-b border-white/10 pb-4">Captured Issue</div>
-            <div className="font-mono text-xs leading-loose">
-              <div className="text-zinc-400 mb-2 border-b border-white/5 pb-2">Journey: Search & Filter</div>
-              <div className="text-zinc-500 pl-4">1. User navigated to search bar</div>
-              <div className="text-zinc-500 pl-4">2. User entered "S" in search bar and clicked SDK Filter</div>
-              <div className="text-zinc-500 pl-4">3. Application displayed Non-SDK results too having S to begin with</div>
-              <div className="text-red-400 bg-red-500/10 px-4 -mx-4 py-1 my-1 flex items-start gap-2">
-                <span className="font-bold shrink-0">✕</span>
-                <span>Behavioral Regression: After searching for "S", selecting the "SDKs" filter does not update the results. The filter doesn't works correctly when the search query is active.</span>
-              </div>
+          <div className="panel overflow-hidden">
+            <div className="border-b border-[#1a1a1a] px-4 py-3 text-[13px] text-[#888]">Captured issue</div>
+            <div className="p-4 font-mono text-[12px] leading-6">
+              <p className="text-[#666]">Journey · Search &amp; Filter</p>
+              <p className="mt-3 text-[#888]">1. Navigate to search</p>
+              <p className="text-[#888]">2. Enter “S”, click SDKs filter</p>
+              <p className="mt-3 rounded-md border border-[#333] bg-[#111] px-3 py-2 text-[#ededed]">
+                Filter does not update results while a query is active.
+              </p>
             </div>
-
-            <div className="mt-8 border-t border-white/10 pt-4 flex gap-4">
-              <div className="flex-1">
-                <div className="text-zinc-300 text-sm mb-2 font-medium">Runbait found an issue</div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[10px] font-bold bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded uppercase">Medium</span>
-                  <span className="text-white text-sm font-medium">Filter interactions silently failing</span>
-                </div>
-                <p className="text-zinc-400 text-xs leading-relaxed">Clicking filter tags does not trigger a re-fetch or UI update. The application fails silently without throwing console errors.</p>
-              </div>
-              <div className="w-32 bg-white rounded overflow-hidden p-1 opacity-80">
-                <div className="h-16 bg-gray-100 rounded border flex items-center justify-center text-gray-300 text-[8px]">Mock</div>
-              </div>
+            <div className="flex items-center justify-between border-t border-[#1a1a1a] px-4 py-3">
+              <span className="text-[13px] text-white">Behavioral regression</span>
+              <span className="badge">
+                <span className="dot text-[#eab308]" />
+                Medium
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Feature 2 */}
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
-          <div>
-            <h2 className="text-4xl font-bold tracking-tight text-white mb-6">
-              Built for speed and scale
-            </h2>
-            <p className="text-zinc-400 font-mono text-sm leading-relaxed max-w-md">
-              Get results as fast as possible depending on project size.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-8">
-            <div className="flex gap-4">
-              <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center shrink-0">
-                <Clock className="w-5 h-5 text-zinc-300" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium mb-1">Async by design</h4>
-                <p className="text-zinc-400 text-sm leading-relaxed font-mono">Run analyses in the background. We'll handle the heavy lifting.</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center shrink-0">
-                <Layers className="w-5 h-5 text-zinc-300" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium mb-1">Scales with your codebase</h4>
-                <p className="text-zinc-400 text-sm leading-relaxed font-mono">From small apps to large monorepos.</p>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center shrink-0">
-                <Zap className="w-5 h-5 text-zinc-300" />
-              </div>
-              <div>
-                <h4 className="text-white font-medium mb-1">Minimal setup</h4>
-                <p className="text-zinc-400 text-sm leading-relaxed font-mono">No config files. Runbait figures it out.</p>
-              </div>
-            </div>
-          </div>
+        <div className="grid gap-px overflow-hidden rounded-xl border border-[#333] bg-[#333] sm:grid-cols-3">
+          <Fact title="Async by design" body="Analyses run in the background. Close the tab — we’ll keep going." />
+          <Fact title="No suite to maintain" body="Flows are generated from the repo and ranked against the PR diff." />
+          <Fact title="Minimal setup" body="Install and start commands if you need them. Otherwise, defaults." />
         </div>
-
       </div>
     </section>
+  );
+}
+
+function Fact({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="bg-black p-6">
+      <h3 className="text-sm font-medium text-white">{title}</h3>
+      <p className="mt-2 text-[13px] leading-relaxed text-[#888]">{body}</p>
+    </div>
   );
 }

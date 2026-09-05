@@ -13,7 +13,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Runbait",
+  title: {
+    default: "Runbait",
+    template: "%s — Runbait",
+  },
   description: "AI QA for pull requests. Catch what tests miss.",
 };
 

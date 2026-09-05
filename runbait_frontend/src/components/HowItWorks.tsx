@@ -1,63 +1,26 @@
-import { GitPullRequest, PlayCircle, TerminalSquare, FileText, ArrowRight, Plug } from "lucide-react";
-
 export default function HowItWorks() {
   const steps = [
-    {
-      num: 1,
-      title: "Connect GitHub",
-      description: "Securely connect your account and select any repository.",
-      icon: <Plug className="w-8 h-8 text-zinc-400 mt-6" />
-    },
-    {
-      num: 2,
-      title: "Choose a PR",
-      description: "Pick any pull request you want to verify.",
-      icon: <GitPullRequest className="w-8 h-8 text-zinc-400 mt-6" />
-    },
-    {
-      num: 3,
-      title: "Run analysis",
-      description: "Runbait understands the changes and tests the affected journeys.",
-      icon: <PlayCircle className="w-8 h-8 text-zinc-400 mt-6" />
-    },
-    {
-      num: 4,
-      title: "We run it",
-      description: "We spin up your app, run real browser tests, and capture evidence.",
-      icon: <TerminalSquare className="w-8 h-8 text-zinc-400 mt-6" />
-    },
-    {
-      num: 5,
-      title: "Get report",
-      description: "You get a clear report with issues, screenshots, and a PR comment.",
-      icon: <FileText className="w-8 h-8 text-zinc-400 mt-6" />
-    }
+    { num: "01", title: "Connect GitHub", body: "Sign in and pick a repository. No config files." },
+    { num: "02", title: "Choose a PR", body: "Select the pull request you want verified." },
+    { num: "03", title: "Map the change", body: "Runbait reads the diff and finds the journeys at risk." },
+    { num: "04", title: "Run the app", body: "We boot the PR head and drive a real browser." },
+    { num: "05", title: "Get the report", body: "Issues, screenshots, and confidence — in the dashboard." },
   ];
 
   return (
-    <section id="how-it-works" className="py-24 border-t border-white/5">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold tracking-tight text-white mb-4">How Runbait works</h2>
-          <p className="text-zinc-400 font-mono text-sm">From pull request to bug report in a few clicks.</p>
-        </div>
-        
-        <div className="flex flex-col lg:flex-row gap-6 relative">
-          {steps.map((step, index) => (
-            <div key={index} className="flex-1 relative">
-              <div className="bg-[#0c0c0c] border border-white/10 rounded-xl p-6 h-full flex flex-col hover:border-white/20 transition-colors">
-                <div className="w-6 h-6 border border-white/20 text-zinc-400 rounded flex items-center justify-center text-xs mb-4">
-                  {step.num}
-                </div>
-                <h3 className="text-white font-medium mb-2">{step.title}</h3>
-                <p className="text-zinc-400 text-sm leading-relaxed flex-1">{step.description}</p>
-                {step.icon}
-              </div>
-              {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute -right-4 top-1/2 -translate-y-1/2 text-zinc-600 z-10">
-                  <ArrowRight className="w-4 h-4" />
-                </div>
-              )}
+    <section id="how-it-works" className="border-t border-[#1a1a1a] py-24">
+      <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
+        <p className="text-[13px] text-[#888]">How it works</p>
+        <h2 className="mt-2 max-w-xl text-[28px] font-semibold tracking-[-0.03em] text-white sm:text-[36px]">
+          From pull request to evidence in a few clicks.
+        </h2>
+
+        <div className="mt-12 grid gap-px overflow-hidden rounded-xl border border-[#333] bg-[#333] sm:grid-cols-5">
+          {steps.map((step) => (
+            <div key={step.num} className="bg-black p-5">
+              <p className="font-mono text-[11px] text-[#555]">{step.num}</p>
+              <h3 className="mt-3 text-sm font-medium text-white">{step.title}</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-[#888]">{step.body}</p>
             </div>
           ))}
         </div>

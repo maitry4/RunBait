@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Database, GitPullRequest, Zap, Play, Activity, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import api from "@/lib/api";
 
 type RunStatus = "pending" | "phase1-3" | "github-actions" | "phase6" | "completed" | "failed";
@@ -13,9 +13,33 @@ interface RunData {
   status: RunStatus;
   is_demo: boolean;
   error?: string;
+  results?: {
+    report?: {
+      overall_status?: string;
+      summary?: string;
+      verdicts?: Array<{
+        flow: string;
+        bug_found: boolean;
+        severity?: string;
+        bug_type?: string;
+        description: string;
+        details: string;
+        evidence_step?: number | null;
+        confidence?: number;
+      }>;
+    };
+  };
 }
 
-export default function DashboardClient({ user, currentTab = "overview" }: { user: any; currentTab?: string }) {
+const IN_FLIGHT: RunStatus[] = ["pending", "phase1-3", "github-actions", "phase6"];
+
+export default function DashboardClient({
+  user,
+  currentTab = "overview",
+}: {
+  user: { name: string };
+  currentTab?: string;
+}) {
   const [activeTab, setActiveTab] = useState<"demo" | "beta">("demo");
   const [demoPR, setDemoPR] = useState("1");
   const [betaRepo, setBetaRepo] = useState("");
@@ -24,20 +48,19 @@ export default function DashboardClient({ user, currentTab = "overview" }: { use
   const [installCmd, setInstallCmd] = useState("npm install");
   const [isLoading, setIsLoading] = useState(false);
   const [currentRun, setCurrentRun] = useState<RunData | null>(null);
-  const [allRuns, setAllRuns] = useState<any[]>([]);
+  const [allRuns, setAllRuns] = useState<RunData[]>([]);
   const [runsFilter, setRunsFilter] = useState<"all" | "completed" | "succeeded" | "failed" | "in_progress">("all");
 
   const fetchAllRuns = async () => {
     try {
       const res = await api.get("/api/runs");
       setAllRuns(res.data);
-      // If no currentRun is set, maybe set the most recent one as currentRun to show something?
-      if (!currentRun && res.data.length > 0) {
-        const latestRun = res.data[0];
-        if (["pending", "phase1-3", "github-actions", "phase6"].includes(latestRun.status)) {
-          setCurrentRun(latestRun);
-        }
-      }
+      setCurrentRun((prev) => {
+        if (prev) return prev;
+        const latest = res.data[0];
+        if (latest && IN_FLIGHT.includes(latest.status)) return latest;
+        return null;
+      });
     } catch (e) {
       console.error("Failed to fetch runs", e);
     }
@@ -45,16 +68,16 @@ export default function DashboardClient({ user, currentTab = "overview" }: { use
 
   useEffect(() => {
     fetchAllRuns();
-  }, [currentTab]); // re-fetch when tab changes
+  }, [currentTab]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (currentRun && ["pending", "phase1-3", "github-actions", "phase6"].includes(currentRun.status)) {
+    if (currentRun && IN_FLIGHT.includes(currentRun.status)) {
       interval = setInterval(async () => {
         try {
           const res = await api.get(`/api/runs/${currentRun.id}`);
           setCurrentRun(res.data);
-          fetchAllRuns(); // keep list updated
+          fetchAllRuns();
         } catch (e) {
           console.error("Failed to poll status", e);
         }
@@ -66,19 +89,22 @@ export default function DashboardClient({ user, currentTab = "overview" }: { use
   const handleRun = async () => {
     setIsLoading(true);
     try {
-      const payload = activeTab === "demo" ? {
-        repo: "maitry4/opensource.razorpay.com",
-        pr_number: parseInt(demoPR),
-        is_demo: true,
-        start_command: "npm run dev",
-        install_command: "npm install"
-      } : {
-        repo: betaRepo,
-        pr_number: parseInt(betaPR),
-        is_demo: false,
-        start_command: startCmd,
-        install_command: installCmd
-      };
+      const payload =
+        activeTab === "demo"
+          ? {
+              repo: "maitry4/opensource.razorpay.com",
+              pr_number: parseInt(demoPR),
+              is_demo: true,
+              start_command: "npm run dev",
+              install_command: "npm install",
+            }
+          : {
+              repo: betaRepo,
+              pr_number: parseInt(betaPR),
+              is_demo: false,
+              start_command: startCmd,
+              install_command: installCmd,
+            };
 
       const res = await api.post("/api/runs", payload);
       setCurrentRun({ id: res.data.run_id, status: "pending", ...payload });
@@ -91,25 +117,34 @@ export default function DashboardClient({ user, currentTab = "overview" }: { use
     }
   };
 
-  const uniqueRepos = Array.from(new Set(allRuns.map(r => r.repo)));
+  const uniqueRepos = Array.from(new Set(allRuns.map((r) => r.repo)));
+  const issuesFound = allRuns.filter(
+    (r) => r.status === "failed" || (r.results?.report?.overall_status && r.results.report.overall_status !== "PASS")
+  ).length;
 
   if (currentTab === "repositories") {
     return (
-      <div className="max-w-4xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Repositories</h1>
-          <p className="text-sm text-zinc-500 mt-1">Repositories you have analyzed.</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="mx-auto max-w-4xl">
+        <PageHeader title="Repositories" description="Projects you have analyzed." />
+        <div className="panel mt-6 overflow-hidden">
           {uniqueRepos.length === 0 ? (
-            <p className="text-zinc-500 text-sm">No repositories analyzed yet.</p>
+            <Empty text="No repositories yet. Run an analysis from Overview." />
           ) : (
-            uniqueRepos.map(repo => (
-              <div key={repo} className="rounded-xl border border-white/5 bg-white/[0.02] p-5 flex items-center gap-3">
-                <Database className="w-6 h-6 text-cyan-400" />
-                <span className="font-medium text-white truncate">{repo}</span>
-              </div>
-            ))
+            <ul>
+              {uniqueRepos.map((repo, i) => (
+                <li
+                  key={repo}
+                  className={`flex items-center justify-between px-4 py-3 text-[13px] ${
+                    i < uniqueRepos.length - 1 ? "border-b border-[#1a1a1a]" : ""
+                  }`}
+                >
+                  <span className="font-medium text-white">{repo}</span>
+                  <span className="text-[#666]">
+                    {allRuns.filter((r) => r.repo === repo).length} analyses
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>
@@ -117,95 +152,100 @@ export default function DashboardClient({ user, currentTab = "overview" }: { use
   }
 
   if (currentTab === "analyses") {
-    const filteredRuns = allRuns.filter(run => {
+    const filteredRuns = allRuns.filter((run) => {
       if (runsFilter === "all") return true;
       if (runsFilter === "completed") return run.status === "completed";
       if (runsFilter === "succeeded") return run.status === "completed" && run.results?.report?.overall_status === "PASS";
-      if (runsFilter === "failed") return run.status === "failed" || (run.status === "completed" && run.results?.report?.overall_status !== "PASS");
-      if (runsFilter === "in_progress") return ["pending", "phase1-3", "github-actions", "phase6"].includes(run.status);
+      if (runsFilter === "failed")
+        return run.status === "failed" || (run.status === "completed" && run.results?.report?.overall_status !== "PASS");
+      if (runsFilter === "in_progress") return IN_FLIGHT.includes(run.status);
       return true;
     });
 
+    const filters: Array<[typeof runsFilter, string]> = [
+      ["all", "All"],
+      ["completed", "Completed"],
+      ["succeeded", "Ready"],
+      ["failed", "Error"],
+      ["in_progress", "Building"],
+    ];
+
     return (
-      <div className="max-w-4xl mx-auto space-y-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Analyses</h1>
-            <p className="text-sm text-zinc-500 mt-1">History of all PR analyses.</p>
-          </div>
-          <div className="flex bg-black/50 border border-white/10 rounded overflow-hidden">
-            <button onClick={() => setRunsFilter("all")} className={`px-3 py-1.5 text-xs font-medium ${runsFilter === "all" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-white transition-colors"}`}>All</button>
-            <button onClick={() => setRunsFilter("completed")} className={`px-3 py-1.5 text-xs font-medium border-l border-white/5 ${runsFilter === "completed" ? "bg-white/10 text-white" : "text-zinc-500 hover:text-white transition-colors"}`}>Completed</button>
-            <button onClick={() => setRunsFilter("succeeded")} className={`px-3 py-1.5 text-xs font-medium border-l border-white/5 ${runsFilter === "succeeded" ? "bg-green-500/20 text-green-400" : "text-zinc-500 hover:text-white transition-colors"}`}>Succeeded</button>
-            <button onClick={() => setRunsFilter("failed")} className={`px-3 py-1.5 text-xs font-medium border-l border-white/5 ${runsFilter === "failed" ? "bg-red-500/20 text-red-400" : "text-zinc-500 hover:text-white transition-colors"}`}>Failed</button>
-            <button onClick={() => setRunsFilter("in_progress")} className={`px-3 py-1.5 text-xs font-medium border-l border-white/5 ${runsFilter === "in_progress" ? "bg-cyan-500/20 text-cyan-400" : "text-zinc-500 hover:text-white transition-colors"}`}>In Progress</button>
+      <div className="mx-auto max-w-4xl">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <PageHeader title="Analyses" description="History of pull request runs." />
+          <div className="flex gap-1 overflow-x-auto">
+            {filters.map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setRunsFilter(id)}
+                className={`h-7 shrink-0 rounded-md px-2.5 text-[12px] ${
+                  runsFilter === id ? "bg-[#111] text-white" : "text-[#888] hover:text-white"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
-        <div className="space-y-6">
+
+        <div className="mt-6 space-y-3">
           {filteredRuns.length === 0 ? (
-            <p className="text-zinc-500 text-sm">No analyses found matching the filter.</p>
+            <div className="panel">
+              <Empty text="No analyses match this filter." />
+            </div>
           ) : (
-            filteredRuns.map(run => (
-              <div key={run.id} className="rounded-xl border border-white/5 bg-white/[0.02] p-6 flex flex-col gap-4">
-                <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <Activity className="w-5 h-5 text-cyan-400" />
-                      <span className="font-semibold text-lg text-white">{run.repo}</span>
-                      <span className="text-zinc-400 text-sm">PR #{run.pr_number}</span>
-                    </div>
+            filteredRuns.map((run) => (
+              <article key={run.id} className="panel overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1a1a1a] px-4 py-3">
+                  <div>
+                    <p className="text-[13px] font-medium text-white">
+                      {run.repo}{" "}
+                      <span className="font-normal text-[#888]">#{run.pr_number}</span>
+                    </p>
                   </div>
-                  {run.status === "completed" && <span className="px-2 py-1 text-xs rounded font-medium bg-green-500/10 text-green-400 border border-green-500/20">Completed</span>}
-                  {run.status === "failed" && <span className="px-2 py-1 text-xs rounded font-medium bg-red-500/10 text-red-400 border border-red-500/20">Failed</span>}
-                  {["pending", "phase1-3", "github-actions", "phase6"].includes(run.status) && <span className="px-2 py-1 text-xs rounded font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">In Progress ({run.status})</span>}
+                  <StatusBadge status={run.status} overall={run.results?.report?.overall_status} />
                 </div>
 
                 {run.status === "failed" && (
-                  <div className="text-sm text-red-400 bg-red-500/5 p-4 rounded border border-red-500/10">
-                    <span className="font-semibold">Pipeline Error:</span> {run.error || "Unknown error"}
-                  </div>
+                  <p className="border-b border-[#1a1a1a] px-4 py-3 text-[13px] text-[#f87171]">
+                    {run.error || "Unknown error"}
+                  </p>
                 )}
-                
-                {run.status === "completed" && run.results?.report && (
-                  <div className="flex flex-col gap-6">
-                    <div className="text-sm text-zinc-300 bg-black/30 p-4 rounded border border-white/5">
-                      <div className="font-semibold text-white mb-2 flex items-center gap-2">
-                        {run.results.report.overall_status === "PASS" ? <CheckCircle className="w-5 h-5 text-green-500" /> : <XCircle className="w-5 h-5 text-red-500" />}
-                        Overall Status: {run.results.report.overall_status}
-                      </div>
-                      <p className="whitespace-pre-wrap leading-relaxed">{run.results.report.summary}</p>
-                    </div>
 
-                    {/* Detailed Verdicts */}
-                    {run.results.report.verdicts && run.results.report.verdicts.length > 0 && (
-                      <div className="space-y-3">
-                        <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-2">Detailed Verdicts</h3>
-                        {run.results.report.verdicts.map((verdict: any, idx: number) => (
-                          <div key={idx} className={`p-4 rounded border ${verdict.bug_found ? 'bg-red-500/5 border-red-500/20' : 'bg-green-500/5 border-green-500/20'}`}>
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center gap-2 font-medium text-white">
-                                {verdict.bug_found ? <XCircle className="w-4 h-4 text-red-400" /> : <CheckCircle className="w-4 h-4 text-green-400" />}
-                                Flow: {verdict.flow}
-                              </div>
-                              {verdict.bug_found && (
-                                <div className="flex gap-2">
-                                  {verdict.severity && <span className="px-2 py-0.5 text-[10px] rounded bg-red-500/20 text-red-400 uppercase">{verdict.severity}</span>}
-                                  {verdict.bug_type && <span className="px-2 py-0.5 text-[10px] rounded bg-orange-500/20 text-orange-400 uppercase">{verdict.bug_type}</span>}
-                                </div>
-                              )}
+                {run.status === "completed" && run.results?.report && (
+                  <div className="px-4 py-4">
+                    <p className="text-[13px] leading-relaxed text-[#888]">{run.results.report.summary}</p>
+                    {run.results.report.verdicts?.length ? (
+                      <div className="mt-4 overflow-hidden rounded-lg border border-[#333]">
+                        {run.results.report.verdicts.map((verdict, idx) => (
+                          <div
+                            key={idx}
+                            className={`px-3 py-3 ${
+                              idx < (run.results?.report?.verdicts?.length ?? 0) - 1
+                                ? "border-b border-[#1a1a1a]"
+                                : ""
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-[13px] text-white">{verdict.flow}</p>
+                              <span className="badge">
+                                <span className={`dot ${verdict.bug_found ? "text-[#ef4444]" : "text-[#22c55e]"}`} />
+                                {verdict.bug_found ? verdict.severity || "Issue" : "Ready"}
+                              </span>
                             </div>
-                            <p className="text-sm text-white font-medium mb-1">{verdict.description}</p>
-                            <p className="text-xs text-zinc-400 mb-2 leading-relaxed">{verdict.details}</p>
-                            {verdict.evidence_step !== null && verdict.evidence_step !== undefined && (
-                              <p className="text-[11px] text-zinc-500 uppercase tracking-wider mt-3">Evidence found at step {verdict.evidence_step}</p>
+                            <p className="mt-1 text-[13px] text-[#ededed]">{verdict.description}</p>
+                            <p className="mt-1 text-[12px] leading-relaxed text-[#888]">{verdict.details}</p>
+                            {verdict.evidence_step != null && (
+                              <p className="mt-2 font-mono text-[11px] text-[#555]">Step {verdict.evidence_step}</p>
                             )}
                           </div>
                         ))}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 )}
-              </div>
+              </article>
             ))
           )}
         </div>
@@ -213,131 +253,120 @@ export default function DashboardClient({ user, currentTab = "overview" }: { use
     );
   }
 
+  const runBusy = !!currentRun && IN_FLIGHT.includes(currentRun.status);
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white">Overview</h1>
-        <p className="text-sm text-zinc-500 mt-1">Welcome back, {user.name}</p>
+    <div className="mx-auto max-w-4xl">
+      <PageHeader title="Overview" description={`Welcome back, ${user.name}`} />
+
+      <div className="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-[#333] bg-[#333]">
+        <Stat label="Analyses" value={String(allRuns.length)} />
+        <Stat label="Repositories" value={String(uniqueRepos.length)} />
+        <Stat label="Issues" value={String(issuesFound)} />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard label="Analyses run" value={allRuns.length.toString()} icon={<Activity className="w-4 h-4 text-zinc-500" />} />
-        <StatCard label="Repositories" value={uniqueRepos.length.toString()} icon={<Database className="w-4 h-4 text-zinc-500" />} />
-        <StatCard label="Issues found" value={allRuns.filter(r => r.status === 'failed' || (r.results?.report?.overall_status && r.results.report.overall_status !== 'PASS')).length.toString()} icon={<Zap className="w-4 h-4 text-zinc-500" />} />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Launcher panel */}
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] overflow-hidden">
-          <div className="flex border-b border-white/5">
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="panel overflow-hidden">
+          <div className="flex border-b border-[#1a1a1a]">
             <button
               onClick={() => setActiveTab("demo")}
-              className={`flex-1 py-3 text-sm font-medium ${activeTab === "demo" ? "bg-white/5 text-white" : "text-zinc-500 hover:text-white"}`}
+              className={`flex-1 py-2.5 text-[13px] ${
+                activeTab === "demo" ? "bg-[#111] text-white" : "text-[#888] hover:text-white"
+              }`}
             >
-              Demo Repository
+              Demo
             </button>
             <button
               onClick={() => setActiveTab("beta")}
-              className={`flex-1 py-3 text-sm font-medium ${activeTab === "beta" ? "bg-white/5 text-white" : "text-zinc-500 hover:text-white"}`}
+              className={`flex-1 py-2.5 text-[13px] ${
+                activeTab === "beta" ? "bg-[#111] text-white" : "text-[#888] hover:text-white"
+              }`}
             >
-              [BETA] Any Repository
+              Repository
             </button>
           </div>
-
-          <div className="p-6 space-y-4">
+          <div className="space-y-3 p-4">
             {activeTab === "demo" ? (
               <>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Target Repository</label>
-                  <input type="text" value="maitry4/opensource.razorpay.com" disabled className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-sm text-zinc-300" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Pull Request Number</label>
-                  <input type="number" value={demoPR} onChange={e => setDemoPR(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20" />
-                </div>
+                <Field label="Repository">
+                  <input type="text" value="maitry4/opensource.razorpay.com" disabled className="input" />
+                </Field>
+                <Field label="Pull request">
+                  <input type="number" value={demoPR} onChange={(e) => setDemoPR(e.target.value)} className="input" />
+                </Field>
               </>
             ) : (
               <>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Repository (owner/repo)</label>
-                  <input type="text" placeholder="e.g. facebook/react" value={betaRepo} onChange={e => setBetaRepo(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Pull Request Number</label>
-                  <input type="number" placeholder="e.g. 123" value={betaPR} onChange={e => setBetaPR(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Install Command</label>
-                  <input type="text" value={installCmd} onChange={e => setInstallCmd(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Start Command</label>
-                  <input type="text" value={startCmd} onChange={e => setStartCmd(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-white/20" />
-                </div>
+                <Field label="Repository">
+                  <input
+                    type="text"
+                    placeholder="owner/repo"
+                    value={betaRepo}
+                    onChange={(e) => setBetaRepo(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+                <Field label="Pull request">
+                  <input
+                    type="number"
+                    placeholder="142"
+                    value={betaPR}
+                    onChange={(e) => setBetaPR(e.target.value)}
+                    className="input"
+                  />
+                </Field>
+                <Field label="Install">
+                  <input type="text" value={installCmd} onChange={(e) => setInstallCmd(e.target.value)} className="input" />
+                </Field>
+                <Field label="Start">
+                  <input type="text" value={startCmd} onChange={(e) => setStartCmd(e.target.value)} className="input" />
+                </Field>
               </>
             )}
-
-            <button
-              onClick={handleRun}
-              disabled={
-                isLoading ||
-                (!!currentRun &&
-                  !["completed", "failed"].includes(currentRun.status))
-              }
-              className="w-full mt-4 flex items-center justify-center gap-2 rounded bg-white text-black font-semibold py-2 px-4 hover:bg-zinc-200 disabled:opacity-50 transition"
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-              Run Analysis
+            <button onClick={handleRun} disabled={isLoading || runBusy} className="btn btn-primary mt-2 h-9 w-full">
+              {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Run analysis
             </button>
           </div>
         </div>
 
-        {/* Status panel */}
-        <div className="rounded-xl border border-white/5 bg-white/[0.02] p-6 flex flex-col">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-cyan-400" /> Current Run
-          </h2>
+        <div className="panel p-4">
+          <p className="text-[13px] font-medium text-white">Current run</p>
           {!currentRun ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-zinc-500 p-8">
-              <GitPullRequest className="w-8 h-8 mb-2 opacity-50" />
-              <p className="text-sm text-center">No analysis running.<br />Start one from the left panel.</p>
-            </div>
+            <p className="mt-8 text-center text-[13px] text-[#666]">No analysis running.</p>
           ) : (
-            <div className="space-y-4 flex-1">
-              <p className="text-sm font-medium text-white mb-4">
-                Analyzing PR #{currentRun.pr_number} on {currentRun.repo}
+            <div className="mt-4 space-y-3">
+              <p className="text-[13px] text-[#888]">
+                {currentRun.repo} <span className="text-white">#{currentRun.pr_number}</span>
               </p>
-
-              <StatusStep label="Context & Flow Discovery" active={currentRun.status === "phase1-3"} done={["github-actions", "phase6", "completed"].includes(currentRun.status)} />
-              <StatusStep label="Playwright Test Execution (GitHub Actions)" active={currentRun.status === "github-actions"} done={["phase6", "completed"].includes(currentRun.status)} />
-              <StatusStep label="AI Regression Analysis" active={currentRun.status === "phase6"} done={["completed"].includes(currentRun.status)} />
-
+              <StatusStep
+                label="Context and flow discovery"
+                active={currentRun.status === "phase1-3"}
+                done={["github-actions", "phase6", "completed"].includes(currentRun.status)}
+              />
+              <StatusStep
+                label="Browser execution"
+                active={currentRun.status === "github-actions"}
+                done={["phase6", "completed"].includes(currentRun.status)}
+              />
+              <StatusStep
+                label="Regression analysis"
+                active={currentRun.status === "phase6"}
+                done={currentRun.status === "completed"}
+              />
               {currentRun.status === "completed" && (
-                <div className="mt-6 p-4 rounded bg-green-500/10 border border-green-500/20 text-green-400 text-sm flex flex-col gap-2">
-                  <div className="flex items-center gap-2 font-medium">
-                    <CheckCircle className="w-4 h-4" /> Analysis Completed Successfully!
-                  </div>
-                  {/* @ts-ignore */}
-                  {currentRun.results?.report?.summary && (
-                    <div className="mt-2 text-zinc-300 text-xs whitespace-pre-wrap">
-                      {/* @ts-ignore */}
-                      {currentRun.results.report.summary.substring(0, 200)}...
-                      <br/>
-                      <a href="/dashboard?tab=analyses" className="text-cyan-400 underline mt-2 block">View full report in Analyses tab</a>
-                    </div>
-                  )}
+                <div className="mt-4 border-t border-[#1a1a1a] pt-3">
+                  <p className="text-[13px] text-[#888]">
+                    {currentRun.results?.report?.summary?.substring(0, 180) ?? "Analysis finished."}
+                    {currentRun.results?.report?.summary && currentRun.results.report.summary.length > 180 ? "…" : ""}
+                  </p>
+                  <a href="/dashboard?tab=analyses" className="mt-2 inline-block text-[13px] text-white underline-offset-4 hover:underline">
+                    View report
+                  </a>
                 </div>
               )}
               {currentRun.status === "failed" && (
-                <div className="mt-6 p-4 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
-                  <XCircle className="w-4 h-4 shrink-0" /> Failed: {currentRun.error || "Unknown error occurred"}
-                </div>
+                <p className="mt-3 text-[13px] text-[#f87171]">{currentRun.error || "Unknown error"}</p>
               )}
             </div>
           )}
@@ -347,29 +376,74 @@ export default function DashboardClient({ user, currentTab = "overview" }: { use
   );
 }
 
-function StatusStep({ label, active, done }: { label: string, active: boolean, done: boolean }) {
+function PageHeader({ title, description }: { title: string; description: string }) {
   return (
-    <div className={`flex items-center gap-3 text-sm ${done ? "text-zinc-300" : active ? "text-white" : "text-zinc-600"}`}>
-      {done ? (
-        <CheckCircle className="w-4 h-4 text-green-500" />
-      ) : active ? (
-        <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-      ) : (
-        <div className="w-4 h-4 rounded-full border-2 border-zinc-700" />
-      )}
-      <span className={active ? "font-semibold" : ""}>{label}</span>
+    <div>
+      <h1 className="text-[22px] font-semibold tracking-[-0.03em] text-white">{title}</h1>
+      <p className="mt-1 text-[13px] text-[#888]">{description}</p>
     </div>
   );
 }
 
-function StatCard({ label, value, icon }: { label: string, value: string, icon: React.ReactNode }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/5 bg-white/[0.02] p-5">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-zinc-500 uppercase tracking-wider">{label}</span>
-        {icon}
-      </div>
-      <p className="text-3xl font-bold text-white">{value}</p>
+    <div className="bg-black px-4 py-4">
+      <p className="text-[12px] text-[#888]">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tracking-tight text-white">{value}</p>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-[12px] text-[#888]">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return <p className="px-4 py-10 text-center text-[13px] text-[#666]">{text}</p>;
+}
+
+function StatusBadge({ status, overall }: { status: RunStatus; overall?: string }) {
+  if (status === "completed" && overall === "PASS") {
+    return (
+      <span className="badge">
+        <span className="dot text-[#22c55e]" /> Ready
+      </span>
+    );
+  }
+  if (status === "failed" || (status === "completed" && overall !== "PASS")) {
+    return (
+      <span className="badge">
+        <span className="dot text-[#ef4444]" /> Error
+      </span>
+    );
+  }
+  if (IN_FLIGHT.includes(status)) {
+    return (
+      <span className="badge">
+        <span className="dot text-[#eab308]" /> Building
+      </span>
+    );
+  }
+  return (
+    <span className="badge">
+      <span className="dot text-[#666]" /> {status}
+    </span>
+  );
+}
+
+function StatusStep({ label, active, done }: { label: string; active: boolean; done: boolean }) {
+  return (
+    <div className={`flex items-center gap-2.5 text-[13px] ${done || active ? "text-[#ededed]" : "text-[#555]"}`}>
+      <span
+        className={`dot ${done ? "text-[#22c55e]" : active ? "text-[#eab308]" : "text-[#333]"}`}
+      />
+      <span>{label}</span>
+      {active ? <Loader2 className="h-3 w-3 animate-spin text-[#888]" /> : null}
     </div>
   );
 }

@@ -6,7 +6,7 @@ Takes:
 - The PR diff (list of changed files + patch text)
 - Basic PR metadata (title, description)
 
-Deterministically maps changed files → candidate flows, then asks Gemini to
+Deterministically maps changed files → candidate flows, then asks the model to
 rank and select which flows should actually be run.
 """
 
@@ -18,16 +18,29 @@ from openai import OpenAI
 from schemas import FlowFile, PRImpactResult
 
 
-SYSTEM_PROMPT = """You are a senior QA engineer doing PR impact analysis.
+_SCHEMA_EXAMPLE = """{
+  "selected_flows": [
+    {
+      "flow": "flow_name_from_flow_file",
+      "reason": "One sentence: why this flow is affected by the PR",
+      "priority": "high"
+    }
+  ],
+  "summary": "2-3 sentence executive summary of what the PR changes and which areas are at risk."
+}"""
+
+SYSTEM_PROMPT = f"""You are a senior QA engineer doing PR impact analysis.
 Given a list of user flows and a PR diff, determine which flows are most likely
 to be affected by the changes in this PR.
 
 Rules:
 - Only select flows that have a real connection to the changed code
 - Explain your reasoning clearly and specifically (reference actual filenames)
-- Prioritize flows as: high (likely broken), medium (possibly affected), low (tangentially related)
-- If a PR only changes styles/docs, select flows that test the visual appearance
+- priority must be exactly one of: high | medium | low
 - If no flows are affected, return an empty selected_flows list
+- Respond ONLY with JSON in this exact shape — no markdown, no extra fields:
+
+{_SCHEMA_EXAMPLE}
 """
 
 
@@ -114,8 +127,49 @@ Files changed: {len(changed_files)}
 ## Available User Flows (pre-filtered candidates)
 {flows_text}
 
-Select which flows are affected by this PR. Respond ONLY with valid JSON matching the PRImpactResult schema.
+Output ONLY the JSON object now.
 """
+
+
+def _extract_json(content: str) -> str:
+    """Strip markdown fences and extract the outermost JSON object."""
+    if "```json" in content:
+        content = content.split("```json")[1].split("```")[0].strip()
+    elif "```" in content:
+        content = content.split("```")[1].split("```")[0].strip()
+    try:
+        json.loads(content)
+        return content
+    except json.JSONDecodeError:
+        pass
+    match = re.search(r"\{", content)
+    if match:
+        start = match.start()
+        depth, in_string, escape_next = 0, False, False
+        for i, ch in enumerate(content[start:], start=start):
+            if escape_next:
+                escape_next = False
+                continue
+            if ch == "\\" and in_string:
+                escape_next = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = content[start:i + 1]
+                    try:
+                        json.loads(candidate)
+                        return candidate
+                    except json.JSONDecodeError:
+                        break
+    return content
 
 
 def analyze_pr_impact(
@@ -142,15 +196,36 @@ def analyze_pr_impact(
         model=model_name,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ],
-        response_format={"type": "json_object"}
+        response_format={"type": "json_object"},
+        max_tokens=1024,
     )
 
-    content = response.choices[0].message.content
+    raw = response.choices[0].message.content or ""
+    finish_reason = response.choices[0].finish_reason
+
+    if finish_reason == "length":
+        raise RuntimeError(
+            f"Phase 3 Cloudflare AI response was cut off (finish_reason='length'). "
+            f"Raw output (first 500 chars): {raw[:500]}"
+        )
+
+    content = _extract_json(raw)
+
     try:
-        return PRImpactResult.model_validate_json(content), pr_data
-    except Exception as e:
-        if "```json" in content:
-            content = content.split("```json")[1].split("```")[0].strip()
-        return PRImpactResult(**json.loads(content)), pr_data
+        data = json.loads(content)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Phase 3 JSON decode failed.\nfinish_reason={finish_reason}\n"
+            f"Raw (first 800 chars):\n{raw[:800]}\nError: {e}"
+        ) from e
+
+    try:
+        return PRImpactResult.model_validate(data), pr_data
+    except Exception as parse_err:
+        raise ValueError(
+            f"Phase 3 schema validation failed.\n"
+            f"Data: {json.dumps(data, indent=2)[:800]}\n"
+            f"Error: {parse_err}"
+        ) from parse_err

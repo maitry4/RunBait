@@ -7,12 +7,12 @@ For each executed flow, sends:
   - All checkpoint screenshots (inline multimodal images)
   - The PR diff context (why this flow was selected)
 
-Gemini (gemini-3.1-flash-lite) returns a detailed RegressionVerdict.
-
-The final AnalysisReport aggregates all verdicts and writes report.json.
+Returns a detailed RegressionVerdict. The final AnalysisReport
+aggregates all verdicts and writes report.json.
 """
 
 import json
+import re
 import base64
 from pathlib import Path
 from typing import Optional
@@ -25,7 +25,18 @@ from schemas import (
 )
 
 
-SYSTEM_PROMPT = """You are a senior QA engineer performing regression analysis on a web application.
+_VERDICT_EXAMPLE = """{
+  "flow": "flow_name",
+  "bug_found": true,
+  "severity": "high",
+  "bug_type": "visual",
+  "description": "One-line summary of the finding",
+  "evidence_step": 2,
+  "confidence": 0.9,
+  "details": "Detailed multi-sentence analysis of what was observed."
+}"""
+
+SYSTEM_PROMPT = f"""You are a senior QA engineer performing regression analysis on a web application.
 You will receive:
 1. The user flow definition — what steps were intended
 2. The execution log — what actually happened (pass/fail per step)
@@ -41,7 +52,53 @@ Analysis guidelines:
 - Be specific and detailed in your 'details' field — reference exact step numbers and screenshot observations
 - confidence: 0.9+ means you are very sure, 0.5-0.9 means likely, below 0.5 means uncertain
 - If the flow ran perfectly with no issues, say so clearly with bug_found=false
+- severity and bug_type are REQUIRED when bug_found is true; omit them when bug_found is false
+- bug_type must be one of: visual | behavioral | functional
+
+Respond ONLY with JSON in this exact shape — no markdown, no extra fields:
+{_VERDICT_EXAMPLE}
 """
+
+
+def _extract_json(content: str) -> str:
+    """Strip markdown fences and extract the outermost JSON object."""
+    if "```json" in content:
+        content = content.split("```json")[1].split("```")[0].strip()
+    elif "```" in content:
+        content = content.split("```")[1].split("```")[0].strip()
+    try:
+        json.loads(content)
+        return content
+    except json.JSONDecodeError:
+        pass
+    match = re.search(r"\{", content)
+    if match:
+        start = match.start()
+        depth, in_string, escape_next = 0, False, False
+        for i, ch in enumerate(content[start:], start=start):
+            if escape_next:
+                escape_next = False
+                continue
+            if ch == "\\" and in_string:
+                escape_next = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = content[start:i + 1]
+                    try:
+                        json.loads(candidate)
+                        return candidate
+                    except json.JSONDecodeError:
+                        break
+    return content
 
 
 def _load_screenshot_parts(steps: list, max_images: int = 10) -> list:
@@ -65,7 +122,6 @@ def _load_screenshot_parts(steps: list, max_images: int = 10) -> list:
             with open(path, "rb") as f:
                 image_bytes = f.read()
             b64_image = base64.b64encode(image_bytes).decode('utf-8')
-            label = step.label or f"step {step.index}"
             status = "✓ passed" if step.success else "✗ FAILED"
             parts.append({
                 "type": "text",
@@ -128,7 +184,7 @@ Console errors logged: {len(result.console_errors)}
 The screenshots above were taken at checkpoint steps and on failures.
 Use them as primary evidence for visual and behavioral regressions.
 
-Based on all of the above, provide a detailed RegressionVerdict.
+Output ONLY the JSON verdict now.
 """
 
 
@@ -148,26 +204,47 @@ def judge_flow(
 
     # Build content: text first, then screenshots
     content = [{"type": "text", "text": text_prompt}] + screenshot_parts
-    
-    # Cloudflare AI expects the system prompt in the messages array
+
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": content}
+        {"role": "user", "content": content},
     ]
 
     response = client.chat.completions.create(
         model=model_name,
         messages=messages,
-        response_format={"type": "json_object"}
+        response_format={"type": "json_object"},
+        max_tokens=1536,
     )
 
-    response_text = response.choices[0].message.content
+    raw = response.choices[0].message.content or ""
+    finish_reason = response.choices[0].finish_reason
+
+    if finish_reason == "length":
+        raise RuntimeError(
+            f"Phase 6 Cloudflare AI response was cut off (finish_reason='length') "
+            f"for flow '{flow.name}'. Raw output (first 500 chars): {raw[:500]}"
+        )
+
+    extracted = _extract_json(raw)
+
     try:
-        return RegressionVerdict.model_validate_json(response_text)
-    except Exception:
-        if "```json" in response_text:
-            response_text = response_text.split("```json")[1].split("```")[0].strip()
-        return RegressionVerdict(**json.loads(response_text))
+        data = json.loads(extracted)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Phase 6 JSON decode failed for flow '{flow.name}'.\n"
+            f"finish_reason={finish_reason}\nRaw (first 800 chars):\n{raw[:800]}\nError: {e}"
+        ) from e
+
+    try:
+        return RegressionVerdict.model_validate(data)
+    except Exception as parse_err:
+        raise ValueError(
+            f"Phase 6 schema validation failed for flow '{flow.name}'.\n"
+            f"Data: {json.dumps(data, indent=2)[:800]}\nError: {parse_err}"
+        ) from parse_err
+
+
 
 
 def build_report(

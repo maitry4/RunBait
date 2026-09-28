@@ -14,7 +14,7 @@ from services.run_service import get_run, update_run_status
 from core.config import get_settings
 
 settings = get_settings()
-CF_TEXT_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+CF_TEXT_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"
 CF_JUDGE_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
 
 def clean_error_message(e: Exception) -> str:

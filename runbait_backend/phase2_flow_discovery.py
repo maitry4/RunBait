@@ -69,7 +69,7 @@ Respond ONLY with valid JSON matching the FlowFile schema.
 """
 
 
-def discover_flows(ctx: RepoContext, client: OpenAI, model_name: str = "@cf/meta/llama-3.1-8b-instruct") -> FlowFile:
+def discover_flows(ctx: RepoContext, client: OpenAI, model_name: str = "@cf/meta/llama-3.1-8b-instruct-fast") -> FlowFile:
     """
     Main entry point for Phase 2.
     Calls Cloudflare AI with the repo context and returns a validated FlowFile.

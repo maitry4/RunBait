@@ -125,7 +125,7 @@ def analyze_pr_impact(
     flow_file: FlowFile,
     client: OpenAI,
     token: Optional[str] = None,
-    model_name: str = "@cf/meta/llama-3.1-8b-instruct",
+    model_name: str = "@cf/meta/llama-3.1-8b-instruct-fast",
 ) -> tuple[PRImpactResult, dict]:
     """
     Main entry point for Phase 3.

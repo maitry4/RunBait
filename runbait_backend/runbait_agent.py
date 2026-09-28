@@ -14,8 +14,8 @@ Requires environment variables (or .env file):
 
 Pipeline:
     Phase 1  Extract repo context via GitHub API (no cloning)
-    Phase 2  Cloudflare AI discovers all user flows (@cf/meta/llama-3.1-8b-instruct)
-    Phase 3  Cloudflare AI selects flows affected by the PR diff (@cf/meta/llama-3.1-8b-instruct)
+    Phase 2  Cloudflare AI discovers all user flows (@cf/meta/llama-3.1-8b-instruct-fast)
+    Phase 3  Cloudflare AI selects flows affected by the PR diff (@cf/meta/llama-3.1-8b-instruct-fast)
     Phase 4  Playwright executes selected flows, captures screenshots
     Phase 6  Cloudflare AI judges screenshots for regressions (@cf/meta/llama-3.2-11b-vision-instruct)
 """
@@ -51,7 +51,7 @@ REPO = "opensource.razorpay.com"
 OUTPUT_DIR = Path(__file__).parent / "output"
 
 # AI models
-CF_TEXT_MODEL = "@cf/meta/llama-3.1-8b-instruct"       # phases 2 & 3 — discovery & selection
+CF_TEXT_MODEL = "@cf/meta/llama-3.1-8b-instruct-fast"       # phases 2 & 3 — discovery & selection
 CF_JUDGE_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"   # phase 6  — regression judgment
 
 console = Console()

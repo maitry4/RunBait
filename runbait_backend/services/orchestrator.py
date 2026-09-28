@@ -19,13 +19,29 @@ CF_JUDGE_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
 
 def clean_error_message(e: Exception) -> str:
     err_str = str(e)
+
+    # Cloudflare deprecated model (410)
+    if "410" in err_str or "deprecated" in err_str.lower():
+        model_hint = ""
+        m = re.search(r"@cf/[^\s'\"]+", err_str)
+        if m:
+            model_hint = f" (model: {m.group(0)})"
+        return (
+            f"Cloudflare AI model has been deprecated{model_hint}. "
+            "Please update the model name in the backend config. "
+            f"Raw: {err_str[:300]}"
+        )
     if "429" in err_str:
-        return "Cloudflare AI Rate Limit Exceeded: Please wait a moment and try again."
+        return f"Cloudflare AI Rate Limit Exceeded: Please wait a moment and try again. Raw: {err_str[:200]}"
     if "403" in err_str or "401" in err_str:
-        return "Cloudflare AI Key Invalid or Permission Denied: Please check your API key."
+        return (
+            f"Cloudflare AI Key Invalid or Permission Denied: "
+            f"Check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID on Render. "
+            f"Raw: {err_str[:300]}"
+        )
     if "400" in err_str:
-        return "Invalid argument passed to Cloudflare AI. Please check your input."
-    
+        return f"Invalid argument passed to Cloudflare AI. Raw: {err_str[:300]}"
+
     # Try to extract just the message if it's a dict/json
     try:
         match = re.search(r'(\{.*\})', err_str, re.DOTALL)
@@ -36,8 +52,9 @@ def clean_error_message(e: Exception) -> str:
                 return f"Cloudflare AI Error: {data['error']['message']}"
     except Exception:
         pass
-        
-    return err_str
+
+    return err_str[:500]
+
 
 async def run_phases_1_to_3(run_id: str):
     run = get_run(run_id)

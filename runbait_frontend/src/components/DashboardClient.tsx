@@ -92,19 +92,19 @@ export default function DashboardClient({
       const payload =
         activeTab === "demo"
           ? {
-              repo: "maitry4/opensource.razorpay.com",
-              pr_number: parseInt(demoPR),
-              is_demo: true,
-              start_command: "npm run dev",
-              install_command: "npm install",
-            }
+            repo: "maitry4/opensource.razorpay.com",
+            pr_number: parseInt(demoPR),
+            is_demo: true,
+            start_command: "npm run dev",
+            install_command: "npm install",
+          }
           : {
-              repo: betaRepo,
-              pr_number: parseInt(betaPR),
-              is_demo: false,
-              start_command: startCmd,
-              install_command: installCmd,
-            };
+            repo: betaRepo,
+            pr_number: parseInt(betaPR),
+            is_demo: false,
+            start_command: startCmd,
+            install_command: installCmd,
+          };
 
       const res = await api.post("/api/runs", payload);
       setCurrentRun({ id: res.data.run_id, status: "pending", ...payload });
@@ -134,13 +134,12 @@ export default function DashboardClient({
               {uniqueRepos.map((repo, i) => (
                 <li
                   key={repo}
-                  className={`flex items-center justify-between px-4 py-3 text-[13px] ${
-                    i < uniqueRepos.length - 1 ? "border-b border-[#1a1a1a]" : ""
-                  }`}
+                  className={`flex items-center justify-between px-4 py-3 text-[13px] ${i < uniqueRepos.length - 1 ? "border-b border-[#1a1a1a]" : ""
+                    }`}
                 >
                   <span className="font-medium text-white">{repo}</span>
                   <span className="text-[#666]">
-                    {allRuns.filter((r) => r.repo === repo).length} analyses
+                    {allRuns.filter((r) => r.repo === repo).length} analysis
                   </span>
                 </li>
               ))}
@@ -151,7 +150,7 @@ export default function DashboardClient({
     );
   }
 
-  if (currentTab === "analyses") {
+  if (currentTab === "analysis") {
     const filteredRuns = allRuns.filter((run) => {
       if (runsFilter === "all") return true;
       if (runsFilter === "completed") return run.status === "completed";
@@ -173,15 +172,14 @@ export default function DashboardClient({
     return (
       <div className="mx-auto max-w-4xl">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <PageHeader title="Analyses" description="History of pull request runs." />
+          <PageHeader title="Analysis" description="History of pull request runs." />
           <div className="flex gap-1 overflow-x-auto">
             {filters.map(([id, label]) => (
               <button
                 key={id}
                 onClick={() => setRunsFilter(id)}
-                className={`h-7 shrink-0 rounded-md px-2.5 text-[12px] ${
-                  runsFilter === id ? "bg-[#111] text-white" : "text-[#888] hover:text-white"
-                }`}
+                className={`h-7 shrink-0 rounded-md px-2.5 text-[12px] ${runsFilter === id ? "bg-[#111] text-white" : "text-[#888] hover:text-white"
+                  }`}
               >
                 {label}
               </button>
@@ -192,7 +190,7 @@ export default function DashboardClient({
         <div className="mt-6 space-y-3">
           {filteredRuns.length === 0 ? (
             <div className="panel">
-              <Empty text="No analyses match this filter." />
+              <Empty text="No analysis match this filter." />
             </div>
           ) : (
             filteredRuns.map((run) => (
@@ -221,11 +219,10 @@ export default function DashboardClient({
                         {run.results.report.verdicts.map((verdict, idx) => (
                           <div
                             key={idx}
-                            className={`px-3 py-3 ${
-                              idx < (run.results?.report?.verdicts?.length ?? 0) - 1
+                            className={`px-3 py-3 ${idx < (run.results?.report?.verdicts?.length ?? 0) - 1
                                 ? "border-b border-[#1a1a1a]"
                                 : ""
-                            }`}
+                              }`}
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <p className="text-[13px] text-white">{verdict.flow}</p>
@@ -260,7 +257,7 @@ export default function DashboardClient({
       <PageHeader title="Overview" description={`Welcome back, ${user.name}`} />
 
       <div className="mt-6 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-[#333] bg-[#333]">
-        <Stat label="Analyses" value={String(allRuns.length)} />
+        <Stat label="Analysis" value={String(allRuns.length)} />
         <Stat label="Repositories" value={String(uniqueRepos.length)} />
         <Stat label="Issues" value={String(issuesFound)} />
       </div>
@@ -270,17 +267,15 @@ export default function DashboardClient({
           <div className="flex border-b border-[#1a1a1a]">
             <button
               onClick={() => setActiveTab("demo")}
-              className={`flex-1 py-2.5 text-[13px] ${
-                activeTab === "demo" ? "bg-[#111] text-white" : "text-[#888] hover:text-white"
-              }`}
+              className={`flex-1 py-2.5 text-[13px] ${activeTab === "demo" ? "bg-[#111] text-white" : "text-[#888] hover:text-white"
+                }`}
             >
               Demo
             </button>
             <button
               onClick={() => setActiveTab("beta")}
-              className={`flex-1 py-2.5 text-[13px] ${
-                activeTab === "beta" ? "bg-[#111] text-white" : "text-[#888] hover:text-white"
-              }`}
+              className={`flex-1 py-2.5 text-[13px] ${activeTab === "beta" ? "bg-[#111] text-white" : "text-[#888] hover:text-white"
+                }`}
             >
               Repository
             </button>
@@ -360,7 +355,7 @@ export default function DashboardClient({
                     {currentRun.results?.report?.summary?.substring(0, 180) ?? "Analysis finished."}
                     {currentRun.results?.report?.summary && currentRun.results.report.summary.length > 180 ? "…" : ""}
                   </p>
-                  <a href="/dashboard?tab=analyses" className="mt-2 inline-block text-[13px] text-white underline-offset-4 hover:underline">
+                  <a href="/dashboard?tab=analysis" className="mt-2 inline-block text-[13px] text-white underline-offset-4 hover:underline">
                     View report
                   </a>
                 </div>

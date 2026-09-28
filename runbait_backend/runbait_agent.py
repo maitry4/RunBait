@@ -9,14 +9,15 @@ Usage (non-interactive, GitHub Actions):
 
 Requires environment variables (or .env file):
     GITHUB_TOKEN   — GitHub personal access token (read-only scope is fine)
-    GEMINI_API_KEY — Google AI API key
+    CLOUDFLARE_ACCOUNT_ID — Cloudflare Account ID
+    CLOUDFLARE_API_TOKEN  — Cloudflare API Token
 
 Pipeline:
     Phase 1  Extract repo context via GitHub API (no cloning)
-    Phase 2  Gemini discovers all user flows (gemini-2.5-flash)
-    Phase 3  Gemini selects flows affected by the PR diff (gemini-2.5-flash)
+    Phase 2  Cloudflare AI discovers all user flows (@cf/meta/llama-3.1-8b-instruct)
+    Phase 3  Cloudflare AI selects flows affected by the PR diff (@cf/meta/llama-3.1-8b-instruct)
     Phase 4  Playwright executes selected flows, captures screenshots
-    Phase 6  Gemini judges screenshots for regressions (gemini-3.1-flash-lite)
+    Phase 6  Cloudflare AI judges screenshots for regressions (@cf/meta/llama-3.2-11b-vision-instruct)
 """
 
 import os
@@ -27,7 +28,7 @@ import requests
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
-from google import genai
+from openai import OpenAI
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -50,8 +51,8 @@ REPO = "opensource.razorpay.com"
 OUTPUT_DIR = Path(__file__).parent / "output"
 
 # AI models
-GEMINI_MODEL = "gemini-2.5-flash"       # phases 2 & 3 — discovery & selection
-JUDGE_MODEL = "gemini-3.1-flash-lite"   # phase 6  — regression judgment
+CF_TEXT_MODEL = "@cf/meta/llama-3.1-8b-instruct"       # phases 2 & 3 — discovery & selection
+CF_JUDGE_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"   # phase 6  — regression judgment
 
 console = Console()
 
@@ -246,13 +247,17 @@ def main():
     args = parse_args()
 
     github_token = os.getenv("GITHUB_TOKEN")
-    gemini_key = os.getenv("GEMINI_API_KEY")
+    cf_key = os.getenv("CLOUDFLARE_API_TOKEN")
+    cf_account = os.getenv("CLOUDFLARE_ACCOUNT_ID")
 
-    if not gemini_key:
-        console.print("[red]Error:[/red] GEMINI_API_KEY not set. Add it to your .env file.")
+    if not cf_key or not cf_account:
+        console.print("[red]Error:[/red] CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID not set. Add them to your .env file.")
         sys.exit(1)
 
-    gemini_client = genai.Client(api_key=gemini_key)
+    cf_client = OpenAI(
+        api_key=cf_key,
+        base_url=f"https://api.cloudflare.com/client/v4/accounts/{cf_account}/ai/v1",
+    )
 
     console.print()
     console.print(Panel(
@@ -313,7 +318,7 @@ def main():
     # ── Phase 2: Flow Discovery ───────────────────────────────────────────────
     console.print()
     with Live(Spinner("dots", text=" [cyan]Phase 2[/cyan] — Discovering user flows..."), refresh_per_second=10):
-        flow_file = discover_flows(ctx, client=gemini_client, model_name=GEMINI_MODEL)
+        flow_file = discover_flows(ctx, client=cf_client, model_name=CF_TEXT_MODEL)
 
     console.print(f"  [green]✓[/green] Phase 2 — [bold]{len(flow_file.flows)}[/bold] flows discovered")
     display_flows(flow_file)
@@ -323,9 +328,9 @@ def main():
     with Live(Spinner("dots", text=f" [cyan]Phase 3[/cyan] — Analyzing PR #{pr_number} impact..."), refresh_per_second=10):
         impact_result, pr_data = analyze_pr_impact(
             OWNER, REPO, pr_number, flow_file,
-            client=gemini_client,
+            client=cf_client,
             token=github_token,
-            model_name=GEMINI_MODEL,
+            model_name=CF_TEXT_MODEL,
         )
 
     console.print(
@@ -373,7 +378,7 @@ def main():
     # ── Phase 6: Regression Judgment ──────────────────────────────────────────
     console.print()
     console.print(Panel.fit(
-        f"[bold magenta]✦ Phase 6 — AI Regression Analysis ({JUDGE_MODEL})[/bold magenta]",
+        f"[bold magenta]✦ Phase 6 — AI Regression Analysis ({CF_JUDGE_MODEL})[/bold magenta]",
         border_style="magenta",
     ))
 
@@ -398,8 +403,8 @@ def main():
                 flow=flow_def,
                 result=exec_result,
                 pr_context=pr_context_str,
-                client=gemini_client,
-                model_name=JUDGE_MODEL,
+                client=cf_client,
+                model_name=CF_JUDGE_MODEL,
             )
         verdicts.append(verdict)
 

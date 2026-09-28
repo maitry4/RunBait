@@ -1,6 +1,6 @@
 import os
 import asyncio
-from google import genai
+from openai import OpenAI
 import requests
 import json
 import re
@@ -14,17 +14,17 @@ from services.run_service import get_run, update_run_status
 from core.config import get_settings
 
 settings = get_settings()
-GEMINI_MODEL = "gemini-2.5-flash"
-JUDGE_MODEL = "gemini-3.1-flash-lite"
+CF_TEXT_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+CF_JUDGE_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
 
 def clean_error_message(e: Exception) -> str:
     err_str = str(e)
-    if "429" in err_str and "RESOURCE_EXHAUSTED" in err_str:
-        return "Gemini API Rate Limit Exceeded: Please wait a moment and try again (Free tier limits apply)."
-    if "403" in err_str and ("PERMISSION_DENIED" in err_str or "API_KEY_INVALID" in err_str):
-        return "Gemini API Key Invalid or Permission Denied: Please check your API key."
-    if "400" in err_str and "INVALID_ARGUMENT" in err_str:
-        return "Invalid argument passed to Gemini API. Please check your input."
+    if "429" in err_str:
+        return "Cloudflare AI Rate Limit Exceeded: Please wait a moment and try again."
+    if "403" in err_str or "401" in err_str:
+        return "Cloudflare AI Key Invalid or Permission Denied: Please check your API key."
+    if "400" in err_str:
+        return "Invalid argument passed to Cloudflare AI. Please check your input."
     
     # Try to extract just the message if it's a dict/json
     try:
@@ -33,7 +33,7 @@ def clean_error_message(e: Exception) -> str:
             json_str = match.group(1).replace("'", '"')
             data = json.loads(json_str)
             if "error" in data and "message" in data["error"]:
-                return f"Gemini API Error: {data['error']['message']}"
+                return f"Cloudflare AI Error: {data['error']['message']}"
     except Exception:
         pass
         
@@ -47,24 +47,28 @@ async def run_phases_1_to_3(run_id: str):
     update_run_status(run_id, "phase1-3")
     
     github_token = os.getenv("GITHUB_TOKEN")
-    gemini_key = os.getenv("GEMINI_API_KEY")
+    cf_key = os.getenv("CLOUDFLARE_API_TOKEN")
+    cf_account = os.getenv("CLOUDFLARE_ACCOUNT_ID")
 
-    if not gemini_key:
-        update_run_status(run_id, "failed", error="GEMINI_API_KEY not set on backend")
+    if not cf_key or not cf_account:
+        update_run_status(run_id, "failed", error="CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID not set on backend")
         return
 
     try:
-        gemini_client = genai.Client(api_key=gemini_key)
+        cf_client = OpenAI(
+            api_key=cf_key,
+            base_url=f"https://api.cloudflare.com/client/v4/accounts/{cf_account}/ai/v1",
+        )
         owner, repo_name = run["repo"].split("/")[-2:] # simple extraction
         
         # Run Phase 1, 2, 3 sequentially
         ctx = extract_repo_context(owner, repo_name, github_token)
-        flow_file = discover_flows(ctx, client=gemini_client, model_name=GEMINI_MODEL)
+        flow_file = discover_flows(ctx, client=cf_client, model_name=CF_TEXT_MODEL)
         impact_result, pr_data = analyze_pr_impact(
             owner, repo_name, run["pr_number"], flow_file,
-            client=gemini_client,
+            client=cf_client,
             token=github_token,
-            model_name=GEMINI_MODEL,
+            model_name=CF_TEXT_MODEL,
         )
 
         update_run_status(run_id, "github-actions", results_update={
@@ -138,9 +142,13 @@ async def run_phase_6(run_id: str, execution_results: list):
         
     update_run_status(run_id, "phase6")
     
-    gemini_key = os.getenv("GEMINI_API_KEY")
+    cf_key = os.getenv("CLOUDFLARE_API_TOKEN")
+    cf_account = os.getenv("CLOUDFLARE_ACCOUNT_ID")
     try:
-        gemini_client = genai.Client(api_key=gemini_key)
+        cf_client = OpenAI(
+            api_key=cf_key,
+            base_url=f"https://api.cloudflare.com/client/v4/accounts/{cf_account}/ai/v1",
+        )
         from schemas import FlowExecutionResult, FlowFile, PRImpactResult
         
         # reconstruct needed objects
@@ -164,8 +172,8 @@ async def run_phase_6(run_id: str, execution_results: list):
                 flow=flow_def,
                 result=exec_result,
                 pr_context=pr_context_str,
-                client=gemini_client,
-                model_name=JUDGE_MODEL,
+                client=cf_client,
+                model_name=CF_JUDGE_MODEL,
             )
             verdicts.append(verdict)
             

@@ -14,8 +14,7 @@ import json
 import re
 import requests
 from typing import Optional
-from google import genai
-from google.genai import types
+from openai import OpenAI
 from schemas import FlowFile, PRImpactResult
 
 
@@ -124,9 +123,9 @@ def analyze_pr_impact(
     repo: str,
     pr_number: int,
     flow_file: FlowFile,
-    client: genai.Client,
+    client: OpenAI,
     token: Optional[str] = None,
-    model_name: str = "gemini-2.5-flash",
+    model_name: str = "@cf/meta/llama-3.1-8b-instruct",
 ) -> tuple[PRImpactResult, dict]:
     """
     Main entry point for Phase 3.
@@ -139,18 +138,19 @@ def analyze_pr_impact(
 
     prompt = _build_prompt(flow_file, pr_data, changed_files, candidates)
 
-    response = client.models.generate_content(
+    response = client.chat.completions.create(
         model=model_name,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            response_schema=PRImpactResult,
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-        ),
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt}
+        ],
+        response_format={"type": "json_object"}
     )
 
-    if response.parsed:
-        return response.parsed, pr_data
-
-    return PRImpactResult(**json.loads(response.text)), pr_data
+    content = response.choices[0].message.content
+    try:
+        return PRImpactResult.model_validate_json(content), pr_data
+    except Exception as e:
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        return PRImpactResult(**json.loads(content)), pr_data

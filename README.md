@@ -93,12 +93,12 @@ Connect GitHub → Pick a PR → Run → Real browser → Report
 | ----------------------------- | ---------------------------------------------------------------------|
 | **GitHub authentication**    | OAuth sign-in with an HttpOnly JWT session                           |
 | **Repository understanding** | Builds a compact view of the repository using GitHub's API           |
-| **Journey discovery**        | Gemini identifies realistic user flows from the application          |
+| **Journey discovery**        | Cloudflare AI identifies realistic user flows from the application   |
 | **PR-aware testing**         | Selects flows that are actually relevant to the changes              |
 | **Real browser execution**   | Runs Playwright against the PR's code, not mocks                     |
 | **Visual evidence**          | Captures screenshots at checkpoints and when things fail             |
 | **Runtime signals**          | Collects execution information including browser/console errors     |
-| **AI regression judgment**   | Gemini evaluates the execution and screenshots                       |
+| **AI regression judgment**   | Cloudflare AI evaluates the execution and screenshots                |
 | **Analysis history**         | Stores completed runs and their results in the dashboard             |
 | **Live progress**            | The dashboard polls the running analysis and shows its current phase |
 
@@ -127,7 +127,7 @@ GitHub Actions acts as the execution environment for the actual application and 
              │                       ┌─────┼─────┐
              │                       │     │     │
              │                       ▼     ▼     ▼
-             │                    GitHub Gemini Supabase
+             │                    GitHub Cloudflare Supabase
              │                      API     │    Postgres
              │                              │
              │                              ▼
@@ -207,7 +207,7 @@ The goal is to give the model enough context to understand the application witho
 
 ### 2. Flow discovery
 
-**Gemini 2.5 Flash** acts as the QA engineer.
+**Llama-3.1-8b** acts as the QA engineer.
 
 From the repository context it generates realistic user journeys and turns them into structured Playwright-friendly steps.
 
@@ -255,7 +255,7 @@ It is:
 
 > **"What should I test because of this PR?"**
 
-RunBait first maps changed files to potentially related flows and then uses **Gemini 2.5 Flash** to rank their relevance.
+RunBait first maps changed files to potentially related flows and then uses **Llama-3.1-8b** to rank their relevance.
 
 ```json
 {
@@ -302,9 +302,9 @@ Most importantly, the browser runs against **the actual PR code**.
 
 ### 5. Regression judgment
 
-The final stage is where Gemini looks at what actually happened.
+The final stage is where Cloudflare AI looks at what actually happened.
 
-**Gemini 3.1 Flash-Lite** receives the relevant PR context, intended flow, execution information, and screenshots.
+**Llama-3.2-11b Vision** receives the relevant PR context, intended flow, execution information, and screenshots.
 
 It produces a structured verdict such as:
 
@@ -423,15 +423,15 @@ RunBait/
 | Backend               | FastAPI, Uvicorn                       |
 | Authentication        | GitHub OAuth, Authlib, JWT             |
 | Database              | Supabase / PostgreSQL                  |
-| AI                    | Google Gemini                          |
+| AI                    | Cloudflare AI                          |
 | Browser automation    | Playwright + Chromium                  |
 | Execution             | GitHub Actions                         |
 | Structured AI output  | Pydantic                               |
 
 ### Models
 
-* **Gemini 2.5 Flash** — repository understanding, flow discovery, and PR impact analysis
-* **Gemini 3.1 Flash-Lite** — screenshot + execution based regression judgment
+* **Llama-3.1-8b** — repository understanding, flow discovery, and PR impact analysis
+* **Llama-3.2-11b Vision** — screenshot + execution based regression judgment
 
 ---
 
@@ -444,7 +444,7 @@ If you want to work on RunBait itself, you'll need:
 * Node.js 20+
 * Python 3.11+
 * GitHub OAuth App
-* Gemini API key
+* Cloudflare API Token & Account ID
 * Supabase project
 * GitHub token for Actions integration
 

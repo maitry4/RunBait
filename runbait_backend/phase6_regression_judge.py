@@ -13,11 +13,11 @@ The final AnalysisReport aggregates all verdicts and writes report.json.
 """
 
 import json
+import base64
 from pathlib import Path
 from typing import Optional
 
-from google import genai
-from google.genai import types
+from openai import OpenAI
 
 from schemas import (
     UserFlow, FlowFile, FlowExecutionResult,
@@ -46,7 +46,7 @@ Analysis guidelines:
 
 def _load_screenshot_parts(steps: list, max_images: int = 10) -> list:
     """
-    Load checkpoint and failure screenshots as Gemini image parts.
+    Load checkpoint and failure screenshots as base64 encoded strings for OpenAI format.
     Skips missing files silently.
     """
     parts = []
@@ -64,12 +64,19 @@ def _load_screenshot_parts(steps: list, max_images: int = 10) -> list:
         try:
             with open(path, "rb") as f:
                 image_bytes = f.read()
+            b64_image = base64.b64encode(image_bytes).decode('utf-8')
             label = step.label or f"step {step.index}"
             status = "✓ passed" if step.success else "✗ FAILED"
-            parts.append(types.Part.from_bytes(data=image_bytes, mime_type="image/png"))
-            parts.append(types.Part.from_text(
-                text=f"[Screenshot — Step {step.index}: {step.action} '{step.target}' — {status}]"
-            ))
+            parts.append({
+                "type": "text",
+                "text": f"[Screenshot — Step {step.index}: {step.action} '{step.target}' — {status}]"
+            })
+            parts.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/png;base64,{b64_image}"
+                }
+            })
             loaded += 1
         except Exception:
             continue
@@ -129,34 +136,38 @@ def judge_flow(
     flow: UserFlow,
     result: FlowExecutionResult,
     pr_context: str,
-    client: genai.Client,
+    client: OpenAI,
     model_name: str,
 ) -> RegressionVerdict:
     """
-    Run Gemini multimodal judgment for a single flow.
+    Run Cloudflare multimodal judgment for a single flow.
     Returns a RegressionVerdict with detailed analysis.
     """
     text_prompt = _build_judge_prompt(flow, result, pr_context)
     screenshot_parts = _load_screenshot_parts(result.steps)
 
-    # Build content: screenshots first, then the text analysis request
-    contents = screenshot_parts + [types.Part.from_text(text=text_prompt)]
+    # Build content: text first, then screenshots
+    content = [{"type": "text", "text": text_prompt}] + screenshot_parts
+    
+    # Cloudflare AI expects the system prompt in the messages array
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": content}
+    ]
 
-    response = client.models.generate_content(
+    response = client.chat.completions.create(
         model=model_name,
-        contents=contents,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            response_schema=RegressionVerdict,
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-        ),
+        messages=messages,
+        response_format={"type": "json_object"}
     )
 
-    if response.parsed:
-        return response.parsed
-
-    return RegressionVerdict(**json.loads(response.text))
+    response_text = response.choices[0].message.content
+    try:
+        return RegressionVerdict.model_validate_json(response_text)
+    except Exception:
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        return RegressionVerdict(**json.loads(response_text))
 
 
 def build_report(

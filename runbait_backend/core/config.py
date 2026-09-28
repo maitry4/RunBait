@@ -29,8 +29,9 @@ class Settings(BaseSettings):
     # GitHub personal token (optional, for repo context)
     GITHUB_TOKEN: str = ""
 
-    # Gemini / Google AI
-    GEMINI_API_KEY: str = ""
+    # Cloudflare AI
+    CLOUDFLARE_ACCOUNT_ID: str = ""
+    CLOUDFLARE_API_TOKEN: str = ""
 
     # URLs (no trailing slash)
     FRONTEND_URL: str = "http://localhost:3000"

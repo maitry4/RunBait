@@ -9,8 +9,7 @@ AFC (automatic function calling) is explicitly disabled — we don't use tools.
 """
 
 import json
-from google import genai
-from google.genai import types
+from openai import OpenAI
 from schemas import RepoContext, FlowFile
 
 
@@ -70,28 +69,30 @@ Respond ONLY with valid JSON matching the FlowFile schema.
 """
 
 
-def discover_flows(ctx: RepoContext, client: genai.Client, model_name: str = "gemini-2.5-flash") -> FlowFile:
+def discover_flows(ctx: RepoContext, client: OpenAI, model_name: str = "@cf/meta/llama-3.1-8b-instruct") -> FlowFile:
     """
     Main entry point for Phase 2.
-    Calls Gemini with the repo context and returns a validated FlowFile.
-    The new google-genai SDK handles Pydantic schemas natively via response.parsed.
+    Calls Cloudflare AI with the repo context and returns a validated FlowFile.
     """
     prompt = _build_prompt(ctx)
-
-    response = client.models.generate_content(
+    
+    # Cloudflare AI might not fully support response_format with strict json_schema, 
+    # so we explicitly ask for JSON in the prompt and try to parse it.
+    
+    response = client.chat.completions.create(
         model=model_name,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            response_schema=FlowFile,
-            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-        ),
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": prompt}
+        ],
+        response_format={"type": "json_object"}
     )
-
-    # response.parsed returns a validated Pydantic instance directly
-    if response.parsed:
-        return response.parsed
-
-    # Fallback: parse from text
-    return FlowFile(**json.loads(response.text))
+    
+    content = response.choices[0].message.content
+    try:
+        return FlowFile.model_validate_json(content)
+    except Exception as e:
+        # Fallback to json loads if there are markdown codeblocks
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        return FlowFile(**json.loads(content))

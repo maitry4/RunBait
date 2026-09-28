@@ -1,14 +1,5 @@
-"""
-Phase 2 — Flow Discovery (AI Step 1)
-
-Takes the structured RepoContext from Phase 1 and asks Gemini to generate
-a FlowFile: a list of testable user journeys for the application.
-
-Uses the new google-genai SDK with native Pydantic structured output.
-AFC (automatic function calling) is explicitly disabled — we don't use tools.
-"""
-
 import json
+import re
 from openai import OpenAI
 from schemas import RepoContext, FlowFile
 
@@ -24,6 +15,7 @@ Rules:
 - Mark important state-change moments as checkpoints (screenshot = true)
 - Aim for 3-7 flows maximum — quality over quantity
 - Steps should reflect what the app ACTUALLY does based on the repo context
+- IMPORTANT: Output ONLY valid, complete JSON. Do not truncate the JSON output.
 """
 
 
@@ -65,8 +57,66 @@ Each flow must have:
 - An entry URL (must be a real route from this app)
 - Steps with specific actions
 
-Respond ONLY with valid JSON matching the FlowFile schema.
+Respond ONLY with valid JSON matching the FlowFile schema. Keep each flow to 3-5 steps maximum to ensure the response fits within token limits.
 """
+
+
+def _extract_json(content: str) -> str:
+    """
+    Attempt to extract a valid JSON string from the LLM response.
+    Handles markdown code fences and truncated JSON.
+    """
+    # Strip markdown fences
+    if "```json" in content:
+        content = content.split("```json")[1].split("```")[0].strip()
+    elif "```" in content:
+        content = content.split("```")[1].split("```")[0].strip()
+
+    # If the JSON is complete, return as-is
+    try:
+        json.loads(content)
+        return content
+    except json.JSONDecodeError:
+        pass
+
+    # Try to extract the outermost JSON object using brace matching
+    match = re.search(r"\{", content)
+    if match:
+        start = match.start()
+        depth = 0
+        last_valid_end = None
+        in_string = False
+        escape_next = False
+        for i, ch in enumerate(content[start:], start=start):
+            if escape_next:
+                escape_next = False
+                continue
+            if ch == "\\" and in_string:
+                escape_next = True
+                continue
+            if ch == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    last_valid_end = i + 1
+                    break
+
+        if last_valid_end:
+            candidate = content[start:last_valid_end]
+            try:
+                json.loads(candidate)
+                return candidate
+            except json.JSONDecodeError:
+                pass
+
+    # Last resort: return the raw content and let the caller surface the error
+    return content
 
 
 def discover_flows(ctx: RepoContext, client: OpenAI, model_name: str = "@cf/meta/llama-3.1-8b-instruct-fast") -> FlowFile:
@@ -75,24 +125,36 @@ def discover_flows(ctx: RepoContext, client: OpenAI, model_name: str = "@cf/meta
     Calls Cloudflare AI with the repo context and returns a validated FlowFile.
     """
     prompt = _build_prompt(ctx)
-    
-    # Cloudflare AI might not fully support response_format with strict json_schema, 
-    # so we explicitly ask for JSON in the prompt and try to parse it.
-    
+
     response = client.chat.completions.create(
         model=model_name,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ],
-        response_format={"type": "json_object"}
+        response_format={"type": "json_object"},
+        max_tokens=2048,
     )
-    
-    content = response.choices[0].message.content
+
+    raw = response.choices[0].message.content or ""
+    finish_reason = response.choices[0].finish_reason
+
+    if finish_reason == "length":
+        # Model hit the token limit — output is likely truncated
+        raise RuntimeError(
+            f"Cloudflare AI response was cut off (finish_reason='length'). "
+            f"The model ran out of tokens. Raw output (first 500 chars): {raw[:500]}"
+        )
+
+    content = _extract_json(raw)
+
     try:
         return FlowFile.model_validate_json(content)
-    except Exception as e:
-        # Fallback to json loads if there are markdown codeblocks
-        if "```json" in content:
-            content = content.split("```json")[1].split("```")[0].strip()
-        return FlowFile(**json.loads(content))
+    except Exception as parse_err:
+        raise ValueError(
+            f"Phase 2 JSON parse failed.\n"
+            f"finish_reason={finish_reason}\n"
+            f"Raw content (first 800 chars):\n{raw[:800]}\n\n"
+            f"Original error: {parse_err}"
+        ) from parse_err
+

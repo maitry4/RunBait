@@ -22,7 +22,7 @@ export default async function DashboardPage({
   const nav = [
     { href: "/dashboard?tab=overview", tab: "overview", label: "Overview" },
     { href: "/dashboard?tab=repositories", tab: "repositories", label: "Repositories" },
-    { href: "/dashboard?tab=analyses", tab: "analyses", label: "Analyses" },
+    { href: "/dashboard?tab=analysis", tab: "analysis", label: "Analysis" },
   ];
 
   return (
@@ -40,9 +40,8 @@ export default async function DashboardPage({
               <Link
                 key={item.tab}
                 href={item.href}
-                className={`shrink-0 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
-                  active ? "bg-[#111] text-white" : "text-[#888] hover:bg-[#0a0a0a] hover:text-white"
-                }`}
+                className={`shrink-0 rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${active ? "bg-[#111] text-white" : "text-[#888] hover:bg-[#0a0a0a] hover:text-white"
+                  }`}
               >
                 {item.label}
               </Link>

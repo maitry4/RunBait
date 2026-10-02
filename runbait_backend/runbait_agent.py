@@ -240,6 +240,35 @@ def save_phase_outputs(flow_file, impact_result, pr_data) -> None:
     console.print(f"  [dim]Saved:[/dim] [cyan]{selected_path}[/cyan]")
 
 
+# ── Cloudflare Model Agreement ───────────────────────────────────────────────
+
+def submit_cf_model_agreement(cf_account: str, cf_key: str, model: str) -> None:
+    """
+    Submit the required model-license agreement for gated Cloudflare AI models
+    (e.g. llama-3.2-11b-vision-instruct requires agreeing to the Llama community
+    license before first use).  Sending {"prompt": "agree"} satisfies this
+    requirement; subsequent calls are silently accepted.
+    """
+    url = (
+        f"https://api.cloudflare.com/client/v4/accounts/{cf_account}"
+        f"/ai/run/{model}"
+    )
+    headers = {
+        "Authorization": f"Bearer {cf_key}",
+        "Content-Type": "application/json",
+    }
+    try:
+        resp = requests.post(url, headers=headers, json={"prompt": "agree"}, timeout=30)
+        # 200 or 400 (already agreed) are both fine; only raise on true errors
+        if resp.status_code not in (200, 400):
+            console.print(
+                f"  [yellow]⚠ Model agreement returned HTTP {resp.status_code} "
+                f"— proceeding anyway.[/yellow]"
+            )
+    except requests.RequestException as exc:
+        console.print(f"  [yellow]⚠ Could not submit model agreement: {exc}[/yellow]")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -381,6 +410,11 @@ def main():
         f"[bold magenta]✦ Phase 6 — AI Regression Analysis ({CF_JUDGE_MODEL})[/bold magenta]",
         border_style="magenta",
     ))
+
+    # Accept the Meta Llama community license (required for vision model)
+    with Live(Spinner("dots", text=" Submitting model license agreement..."), refresh_per_second=10):
+        submit_cf_model_agreement(cf_account, cf_key, CF_JUDGE_MODEL)
+    console.print("  [green]✓[/green] Model agreement submitted")
 
     verdicts = []
     # Build a compact PR context string for the judge

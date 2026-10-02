@@ -188,6 +188,30 @@ Output ONLY the JSON verdict now.
 """
 
 
+
+def _is_consent_error(exc: Exception) -> bool:
+    """Return True if the exception is a Cloudflare model-agreement gate (403 + 'agree')."""
+    s = str(exc).lower()
+    return "403" in s and ("model agreement" in s or "submit the prompt" in s or "agree" in s)
+
+
+def _ensure_model_consent(client: OpenAI, model_name: str) -> None:
+    """
+    Cloudflare requires a one-time 'agree' prompt before using gated models
+    (e.g. llama-3.2-11b-vision-instruct). This sends that consent message.
+    Safe to call repeatedly — Cloudflare ignores it if already agreed.
+    """
+    try:
+        client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": "agree"}],
+            max_tokens=16,
+        )
+    except Exception:
+        # Ignore errors here — the consent call itself may 'fail' but still register
+        pass
+
+
 def judge_flow(
     flow: UserFlow,
     result: FlowExecutionResult,
@@ -210,12 +234,26 @@ def judge_flow(
         {"role": "user", "content": content},
     ]
 
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=messages,
-        response_format={"type": "json_object"},
-        max_tokens=1536,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            response_format={"type": "json_object"},
+            max_tokens=1536,
+        )
+    except Exception as first_err:
+        if _is_consent_error(first_err):
+            # Auto-consent to the model license and retry once
+            print(f"[phase6] Cloudflare model agreement required for {model_name}. Sending 'agree' and retrying...")
+            _ensure_model_consent(client, model_name)
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                response_format={"type": "json_object"},
+                max_tokens=1536,
+            )
+        else:
+            raise
 
     raw = response.choices[0].message.content or ""
     finish_reason = response.choices[0].finish_reason

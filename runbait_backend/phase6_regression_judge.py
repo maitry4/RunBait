@@ -261,18 +261,22 @@ def judge_flow(
     if finish_reason == "length":
         raise RuntimeError(
             f"Phase 6 Cloudflare AI response was cut off (finish_reason='length') "
-            f"for flow '{flow.name}'. Raw output (first 500 chars): {raw[:500]}"
+            f"for flow '{flow.name}'. Raw output (first 500 chars): {str(raw)[:500]}"
         )
 
-    extracted = _extract_json(raw)
-
-    try:
-        data = json.loads(extracted)
-    except json.JSONDecodeError as e:
-        raise ValueError(
-            f"Phase 6 JSON decode failed for flow '{flow.name}'.\n"
-            f"finish_reason={finish_reason}\nRaw (first 800 chars):\n{raw[:800]}\nError: {e}"
-        ) from e
+    # Cloudflare's OpenAI-compat layer sometimes returns content already parsed
+    # as a dict when response_format=json_object is used — handle both cases.
+    if isinstance(raw, dict):
+        data = raw
+    else:
+        extracted = _extract_json(raw)
+        try:
+            data = json.loads(extracted)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Phase 6 JSON decode failed for flow '{flow.name}'.\n"
+                f"finish_reason={finish_reason}\nRaw (first 800 chars):\n{str(raw)[:800]}\nError: {e}"
+            ) from e
 
     try:
         return RegressionVerdict.model_validate(data)

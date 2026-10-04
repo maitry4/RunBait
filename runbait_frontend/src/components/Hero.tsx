@@ -41,13 +41,13 @@ export default function Hero() {
                 <div className="space-y-0.5 text-[13px]">
                   <div className="rounded-md bg-[#111] px-2 py-1.5 text-white">Overview</div>
                   <div className="px-2 py-1.5 text-[#888]">Repositories</div>
-                  <div className="px-2 py-1.5 text-[#888]">Analyses</div>
+                  <div className="px-2 py-1.5 text-[#888]">Analysis</div>
                 </div>
               </aside>
               <div className="p-4 sm:p-5">
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium text-white">Analyses</p>
+                    <p className="text-sm font-medium text-white">Analysis</p>
                     <p className="mt-0.5 text-[13px] text-[#888]">maitry4/opensource.razorpay.com</p>
                   </div>
                   <span className="badge">

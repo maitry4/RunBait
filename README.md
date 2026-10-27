@@ -386,26 +386,35 @@ If the worker fails, it still notifies the backend so that a run does not remain
 RunBait/
 ├── runbait_frontend/              # Next.js application
 │   ├── src/app/                   # Landing, sign-in, dashboard
+│   ├── src/app/(auth)/            # Sign-in page
 │   ├── src/app/api/               # Cookie-aware API proxies
-│   └── src/components/            # UI + dashboard components
+│   ├── src/components/            # UI + dashboard components
+│   ├── src/lib/                   # API client + auth helpers
+│   └── .env.local.example         # Frontend env template
 │
 ├── runbait_backend/               # FastAPI orchestrator
 │   ├── main.py
+│   ├── core/
+│   │   ├── config.py              # pydantic-settings configuration
+│   │   ├── db.py                  # Supabase client singleton
+│   │   └── security.py            # JWT + dependency injection
 │   ├── routers/
-│   │   ├── auth
-│   │   ├── users
-│   │   └── runs
+│   │   ├── auth.py
+│   │   ├── users.py
+│   │   └── runs.py
 │   ├── services/
-│   │   └── orchestrator.py
+│   │   ├── orchestrator.py        # Phases 1-3 + Phase 6 glue
+│   │   └── run_service.py         # CRUD helpers for the runs table
 │   ├── phase1_repo_context.py
 │   ├── phase2_flow_discovery.py
 │   ├── phase3_pr_impact.py
 │   ├── phase4_playwright_runner.py
 │   ├── phase6_regression_judge.py
-│   ├── github_actions_runner.py
-│   ├── runbait_agent.py
-│   ├── schemas.py
-│   └── migrations/
+│   ├── github_actions_runner.py   # Entrypoint for the GH Actions worker
+│   ├── runbait_agent.py           # Standalone CLI runner
+│   ├── schemas.py                 # Pydantic models for all AI outputs
+│   ├── migrations/                # SQL migrations for Supabase
+│   └── .env.example               # Backend env template
 │
 └── .github/
     └── workflows/
@@ -421,9 +430,10 @@ RunBait/
 | Frontend              | Next.js 16, React 19, Tailwind CSS 4  |
 | Frontend hosting      | Vercel                                 |
 | Backend               | FastAPI, Uvicorn                       |
+| Backend hosting       | Render                                 |
 | Authentication        | GitHub OAuth, Authlib, JWT             |
 | Database              | Supabase / PostgreSQL                  |
-| AI                    | Cloudflare AI                          |
+| AI                    | Cloudflare AI (via OpenAI-compatible API) |
 | Browser automation    | Playwright + Chromium                  |
 | Execution             | GitHub Actions                         |
 | Structured AI output  | Pydantic                               |
@@ -452,11 +462,12 @@ If you want to work on RunBait itself, you'll need:
 
 ```bash
 cd runbait_frontend
+cp .env.local.example .env.local   # then fill in your values
 npm install
 npm run dev
 ```
 
-Set your backend URL in the environment variables.
+The `.env.local.example` file contains the variables you need to set (mainly `BACKEND_URL` and `NEXT_PUBLIC_BACKEND_URL`).
 
 The frontend will be available at:
 
@@ -468,12 +479,15 @@ http://localhost:3000
 
 ```bash
 cd runbait_backend
+cp .env.example .env               # then fill in your values
 
 pip install -r requirements.txt
 playwright install chromium
 
 uvicorn main:app --reload --port 8000
 ```
+
+The `.env.example` file lists every variable the backend needs (Supabase, GitHub OAuth, Cloudflare AI, JWT secret, etc.).
 
 API documentation:
 

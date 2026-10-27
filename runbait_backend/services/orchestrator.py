@@ -19,8 +19,35 @@ CF_JUDGE_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct"
 
 def clean_error_message(e: Exception) -> str:
     err_str = str(e)
+    is_github = "api.github.com" in err_str
 
-    # Cloudflare deprecated model (410)
+    # ── GitHub API errors ────────────────────────────────────────────
+    if is_github:
+        if "401" in err_str:
+            return (
+                "GitHub API authentication failed (401 Unauthorized). "
+                "Your GITHUB_TOKEN is missing, expired, or invalid. "
+                "Generate a new token at https://github.com/settings/tokens and "
+                "update it on Render. "
+                f"Raw: {err_str[:300]}"
+            )
+        if "403" in err_str:
+            return (
+                "GitHub API rate limit or permission denied (403 Forbidden). "
+                "Check that GITHUB_TOKEN has the required scopes (repo, read:user) "
+                "and that you have not exceeded the API rate limit. "
+                f"Raw: {err_str[:300]}"
+            )
+        if "404" in err_str:
+            return (
+                "GitHub API returned 404 Not Found. "
+                "Check that the repository and PR number are correct, and that "
+                "GITHUB_TOKEN has access to the repository. "
+                f"Raw: {err_str[:300]}"
+            )
+        return f"GitHub API error: {err_str[:400]}"
+
+    # ── Cloudflare AI errors ─────────────────────────────────────────
     if "410" in err_str or "deprecated" in err_str.lower():
         model_hint = ""
         m = re.search(r"@cf/[^\s'\"]+", err_str)
